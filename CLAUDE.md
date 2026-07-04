@@ -45,6 +45,15 @@ När en ny version görs, bumpa `<Version>` i `Directory.Build.props`, commita o
 
 > Jämför‑två‑postningar valdes bort medvetet: med ett enda sågverk och fast sågspår finns inget att jämföra mot.
 
+### Sågordning & visualisering (v1.2.0)
+
+- `SawSequence` räknar fram snittordningen för blockmetoden (Logosol): försågning av de fyra
+  sidorna med vändning emellan, sedan delning. Varje snitt får mått **från centrum** (första på
+  en sida) och **relativt steg** ("flytta X mm") för följande snitt.
+- `SawScheduleCard` = numrerad steglista med mått. `StepSawVisual` = interaktiv stega‑igenom:
+  bilden roterar så sågad sida hamnar uppåt, omkretsen klipps till den nuvarande cant‑formen
+  (`CrossSectionSvg.RenderStepped`), och måttet ritas i bilden från referenspunkt till snittlinje.
+
 ## Bra att veta
 
 - All beräkning sker internt i tum; mm/cm visas parallellt. Sågspår är en variabel.

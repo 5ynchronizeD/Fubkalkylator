@@ -1,0 +1,84 @@
+@using Fubkalkylator.Core
+
+<details class="card stepsaw">
+    <summary>Stega igenom snitten</summary>
+
+    @if (Result is not null)
+    {
+        <div class="stepsaw-stage">
+            <div class="stepsaw-rot" style="transform: rotate(@(Angle)deg);">
+                @((MarkupString)CrossSectionSvg.RenderStepped(Result, step))
+            </div>
+        </div>
+
+        <div class="stepsaw-info">
+            @if (step == 0)
+            {
+                <strong>Hel stock</strong>
+                <span class="muted">Tryck Nästa för att börja såga.</span>
+            }
+            else
+            {
+                var cut = cuts[step - 1];
+                <strong>@step/@cuts.Count · @PhaseName(cut.Phase)</strong>
+                <span class="cut-label">@cut.Label</span>
+                @if (cut.StepFromPreviousInches is double s)
+                {
+                    <span class="cut-mm move">↕ flytta @Mm(s) mm</span>
+                }
+                else
+                {
+                    <span class="cut-mm">@Mm(cut.DistanceFromCenterInches) mm@(Suffix(cut))</span>
+                }
+            }
+        </div>
+
+        <div class="stepsaw-controls">
+            <button class="btn ghost" disabled="@(step == 0)" @onclick="Prev">‹ Föregående</button>
+            <button class="btn" disabled="@(step >= cuts.Count)" @onclick="Next">Nästa ›</button>
+            <button class="linklike" disabled="@(step == 0)" @onclick="Reset">Återställ</button>
+        </div>
+        <p class="hint">Bilden roterar så att sidan som sågas hamnar uppåt (sågen snittar alltid uppåt).
+            Bortkapade bitar tonas ned; röd streckad linje är det aktuella snittet.</p>
+    }
+</details>
+
+@code {
+    [Parameter] public PostningResult? Result { get; set; }
+
+    private int step;
+    private IReadOnlyList<SawCut> cuts = Array.Empty<SawCut>();
+
+    protected override void OnParametersSet()
+    {
+        cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result);
+        if (step > cuts.Count) step = cuts.Count;   // stocken ändrades → håll steget giltigt
+    }
+
+    private void Next() { if (step < cuts.Count) step++; }
+    private void Prev() { if (step > 0) step--; }
+    private void Reset() => step = 0;
+
+    // Rotera så att den sågade sidan är uppåt.
+    private int Angle => step == 0 ? 0 : cuts[step - 1].Phase switch
+    {
+        CutPhase.SideFace1 => -90,
+        CutPhase.SideFace2 => 90,
+        CutPhase.EndFace1 => 0,
+        CutPhase.EndFace2 => 180,
+        _ => 0,   // delning: block stående, snitt uppifrån
+    };
+
+    private static string PhaseName(CutPhase p) => p switch
+    {
+        CutPhase.SideFace1 => "Sidobrädor sida 1",
+        CutPhase.SideFace2 => "Sidobrädor sida 2",
+        CutPhase.EndFace1 => "Ändbrädor ände 1",
+        CutPhase.EndFace2 => "Ändbrädor ände 2",
+        CutPhase.BlockSplit => "Delning av blocket",
+        _ => "",
+    };
+
+    private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0");
+    private static string Suffix(SawCut c) => c.AboveCenter is bool a ? (a ? " ovan centrum" : " under centrum") : " från centrum";
+}

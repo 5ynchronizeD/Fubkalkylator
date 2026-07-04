@@ -83,6 +83,10 @@
 
             <VolumeValueCard Result="result" OnEconomyChanged="e => economy = e" />
 
+            <SawScheduleCard Result="result" />
+
+            <StepSawVisual Result="result" />
+
             <SaveJobForm StockFub="result.DiameterUnderBark.Inches" Kerf="result.KerfInches"
                          BlockWidth="result.BlockWidth.Inches" BlockHeight="result.BlockHeight.Inches"
                          StockLength="economy?.LengthInches" TimberVolumeM3="economy?.TimberVolumeM3"

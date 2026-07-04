@@ -251,6 +251,30 @@ ul.mat .d { color: var(--ink); }
 .order-table tfoot tr.sum td { border-top: 2px solid var(--line); font-weight: 700; }
 .order-actions { margin-top: .7rem; }
 
+/* ---------- Sågschema ---------- */
+.sawschedule summary { cursor: pointer; font-weight: 600; color: var(--forest); }
+[data-theme="dark"] .sawschedule summary { color: #bfe0c9; }
+.cut-phase { margin: .8rem 0 .3rem; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.cut-list { list-style: none; margin: 0; padding: 0; }
+.cut-list li { display: flex; align-items: baseline; gap: .6rem; padding: .35rem 0; border-bottom: 1px dashed var(--line); }
+.cut-nr { flex: none; width: 1.6rem; height: 1.6rem; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--forest); color: #f3ead4; border-radius: 999px; font-size: .8rem; font-weight: 700; }
+.cut-label { flex: 1; }
+.cut-mm { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cut-mm.move { color: var(--leaf); font-weight: 600; }
+[data-theme="dark"] .cut-mm.move { color: #9ec3a6; }
+
+/* ---------- Interaktiv stega-igenom ---------- */
+.stepsaw summary { cursor: pointer; font-weight: 600; color: var(--forest); }
+[data-theme="dark"] .stepsaw summary { color: #bfe0c9; }
+.stepsaw-stage { display: flex; justify-content: center; padding: .8rem 0; }
+.stepsaw-rot { width: 78%; max-width: 340px; transition: transform .55s cubic-bezier(.4,.1,.2,1); transform-origin: 50% 50%; }
+.stepsaw-rot .log-svg { width: 100%; height: auto; display: block; }
+.stepsaw-info { display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem; margin: .3rem 0 .7rem; }
+.stepsaw-info .cut-label { flex: 1; }
+.stepsaw-controls { display: flex; gap: .5rem; align-items: center; }
+.stepsaw-controls .btn { flex: 1; }
+
 /* ---------- Måldimension ---------- */
 .bar-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: .6rem; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
