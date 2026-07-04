@@ -1,0 +1,159 @@
+@page "/loggbok"
+@inject ISawJobStore Store
+
+<PageTitle>Loggbok</PageTitle>
+
+<div class="page-head">
+    <h1>Loggbok</h1>
+    <p>Sparade sågningar — beräkning mot faktiskt utfall, och vad som torkar.</p>
+</div>
+
+<div class="seg small logfilter">
+    <button class="@(filter is null ? "on" : null)" @onclick="() => SetFilter(null)">Alla</button>
+    <button class="@(filter == DryingStatus.Torkar ? "on" : null)" @onclick="() => SetFilter(DryingStatus.Torkar)">Torkar</button>
+    <button class="@(filter == DryingStatus.Klar ? "on" : null)" @onclick="() => SetFilter(DryingStatus.Klar)">Klar</button>
+</div>
+
+@if (jobs is null)
+{
+    <p class="hint">Laddar…</p>
+}
+else if (Filtered.Count == 0)
+{
+    <div class="banner">Inga sparade sågningar än. Gör en beräkning och tryck "Mata in faktiskt utfall".</div>
+}
+else
+{
+    @foreach (var j in Filtered)
+    {
+        <div class="card job">
+            <div class="job-top">
+                <strong>@(string.IsNullOrEmpty(j.Species) ? "Okänt trädslag" : j.Species)</strong>
+                <span class="date">@j.SavedAt.ToString("yyyy-MM-dd")</span>
+            </div>
+            <div class="job-dim">@DimLabel(j) · stock @Fmt(j.StockFubInches)" · spår @FmtMm(j.KerfInches) mm</div>
+
+            <div class="job-cols">
+                <div><span class="lbl">Beräknat</span>@j.CalculatedOutcome</div>
+                <div><span class="lbl">Faktiskt</span>@(string.IsNullOrEmpty(j.ActualOutcome) ? "–" : j.ActualOutcome)</div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(j.Note))
+            {
+                <div class="job-note">📝 @j.Note</div>
+            }
+
+            <div class="moisture">
+                <div class="moisture-head">
+                    <span class="lbl">Fukthalt</span>
+                    @if (j.MoistureReadings.Count > 0)
+                    {
+                        <strong>@Pct(j.MoistureReadings[^1].Percent)</strong>
+                        <span class="muted">senast @j.MoistureReadings[^1].Date.ToString("yyyy-MM-dd")</span>
+                        @if (j.MoistureReadings.Count >= 2)
+                        {
+                            <span class="muted">· från @Pct(j.MoistureReadings[0].Percent)</span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="muted">ingen mätning än</span>
+                    }
+                </div>
+
+                @if (j.MoistureReadings.Count >= 2)
+                {
+                    <MoistureSparkline Readings="j.MoistureReadings" />
+                }
+
+                @if (expanded.Contains(j.Id))
+                {
+                    @if (j.MoistureReadings.Count > 0)
+                    {
+                        <ul class="mreadings">
+                            @foreach (var m in j.MoistureReadings.OrderByDescending(x => x.Date))
+                            {
+                                <li><span>@m.Date.ToString("yyyy-MM-dd")</span><strong>@Pct(m.Percent)</strong></li>
+                            }
+                        </ul>
+                    }
+                    <div class="addm">
+                        <input type="number" step="0.5" min="0" max="200" placeholder="%"
+                               @bind="newPct" @bind:event="oninput" />
+                        <button class="btn sm" @onclick="() => AddReading(j)">Lägg till mätning</button>
+                    </div>
+                }
+                else
+                {
+                    <button class="linklike" @onclick="() => Toggle(j.Id)">＋ Lägg till fukthalt@(j.MoistureReadings.Count > 0 ? " / historik" : "")</button>
+                }
+            </div>
+
+            <div class="job-foot">
+                @if (j.Drying == DryingStatus.Torkar)
+                {
+                    <span class="chip-status torkar">Torkar@(DryingDays(j) is int d ? $" · {d} dgr" : "")</span>
+                    <button class="linklike" @onclick="() => MarkKlar(j)">Markera klar</button>
+                }
+                else
+                {
+                    <span class="chip-status klar">Klar</span>
+                    <button class="linklike" @onclick="() => MarkTorkar(j)">Tillbaka till torkar</button>
+                }
+                <button class="linklike danger" @onclick="() => Delete(j)">Ta bort</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private IReadOnlyList<SawJob>? jobs;
+    private DryingStatus? filter;
+    private readonly HashSet<int> expanded = new();
+    private double? newPct;
+
+    private List<SawJob> Filtered => (jobs ?? new List<SawJob>())
+        .Where(j => filter is null || j.Drying == filter).ToList();
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload() => jobs = await Store.GetAllAsync();
+
+    private void SetFilter(DryingStatus? f) => filter = f;
+
+    private async Task MarkKlar(SawJob j) { j.Drying = DryingStatus.Klar; await Store.SaveAsync(j); await Reload(); }
+    private async Task MarkTorkar(SawJob j)
+    {
+        j.Drying = DryingStatus.Torkar;
+        j.DryingStart ??= DateTime.Now;
+        await Store.SaveAsync(j);
+        await Reload();
+    }
+    private async Task Delete(SawJob j) { await Store.DeleteAsync(j.Id); await Reload(); }
+
+    private void Toggle(int id) { if (!expanded.Add(id)) expanded.Remove(id); }
+
+    private async Task AddReading(SawJob j)
+    {
+        if (newPct is not > 0) return;
+        j.MoistureReadings.Add(new MoistureReading { Date = DateTime.Now, Percent = newPct.Value });
+        j.MoistureReadings.Sort((a, b) => a.Date.CompareTo(b.Date));
+        newPct = null;
+        await Store.SaveAsync(j);
+        await Reload();
+    }
+
+    private static int? DryingDays(SawJob j)
+        => j.DryingStart is DateTime d ? (int)(DateTime.Now - d).TotalDays : null;
+
+    private static string DimLabel(SawJob j)
+    {
+        if (j.TargetThicknessInches is double t && j.TargetWidthInches is double w)
+            return $"{Fmt(t)}\"×{Fmt(w)}\"";
+        return $"block {Fmt(j.BlockWidthInches)}\"×{Fmt(j.BlockHeightInches)}\"";
+    }
+
+    private static string Fmt(double inches) => inches.ToString("0.##");
+    private static string FmtMm(double inches) => (inches * SawConstants.MmPerInch).ToString("0.#");
+    private static string Pct(double v) => $"{v:0.#}%";
+}

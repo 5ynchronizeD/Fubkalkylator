@@ -1,0 +1,101 @@
+@inject ISawJobStore Store
+
+<div class="savejob">
+    @if (!open && saved is null)
+    {
+        <button class="btn ghost" @onclick="() => open = true">＋ Mata in faktiskt utfall</button>
+    }
+    else if (saved is not null)
+    {
+        <div class="saved-ok">✓ Sparat i loggboken. <a href="loggbok">Öppna loggboken ›</a>
+            <button class="linklike" @onclick="Reset">Spara en till</button>
+        </div>
+    }
+    else
+    {
+        <div class="card jobform">
+            <div class="card-title">Spara sågning</div>
+            <label>Trädslag</label>
+            <input class="fld" @bind="species" placeholder="t.ex. Gran" />
+
+            <label>Faktiskt utfall</label>
+            <textarea class="fld" rows="2" @bind="actual"></textarea>
+
+            <label>Torkstatus</label>
+            <div class="seg small">
+                <button type="button" class="@(drying == DryingStatus.Torkar ? "on" : null)"
+                        @onclick="() => drying = DryingStatus.Torkar">Torkar</button>
+                <button type="button" class="@(drying == DryingStatus.Klar ? "on" : null)"
+                        @onclick="() => drying = DryingStatus.Klar">Klar</button>
+            </div>
+
+            <label>Fukthalt nu (%)</label>
+            <input class="fld" type="number" step="0.5" min="0" max="200" @bind="moisture" placeholder="valfritt" />
+
+            <label>Anteckning</label>
+            <input class="fld" @bind="note" placeholder="valfritt" />
+
+            <div class="jobform-actions">
+                <button class="btn" @onclick="Save">Spara</button>
+                <button class="linklike" @onclick="() => open = false">Avbryt</button>
+            </div>
+            <p class="hint">Beräkningen sparas automatiskt: stock @Fmt(StockFub)" · @CalculatedOutcome</p>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public double StockFub { get; set; }
+    [Parameter] public double Kerf { get; set; }
+    [Parameter] public double? TargetThickness { get; set; }
+    [Parameter] public double? TargetWidth { get; set; }
+    [Parameter] public double BlockWidth { get; set; }
+    [Parameter] public double BlockHeight { get; set; }
+    [Parameter] public string CalculatedOutcome { get; set; } = "";
+
+    private bool open;
+    private SawJob? saved;
+    private string species = "";
+    private string actual = "";
+    private string note = "";
+    private double? moisture;
+    private DryingStatus drying = DryingStatus.Torkar;
+
+    protected override void OnParametersSet()
+    {
+        if (!open && string.IsNullOrEmpty(actual))
+            actual = CalculatedOutcome; // förifyll med beräkningen
+    }
+
+    private async Task Save()
+    {
+        var job = new SawJob
+        {
+            SavedAt = DateTime.Now,
+            StockFubInches = StockFub,
+            KerfInches = Kerf,
+            TargetThicknessInches = TargetThickness,
+            TargetWidthInches = TargetWidth,
+            BlockWidthInches = BlockWidth,
+            BlockHeightInches = BlockHeight,
+            CalculatedOutcome = CalculatedOutcome,
+            Species = species.Trim(),
+            ActualOutcome = actual.Trim(),
+            Note = note.Trim(),
+            Drying = drying,
+            DryingStart = drying == DryingStatus.Torkar ? DateTime.Now : null,
+        };
+        if (moisture is > 0)
+            job.MoistureReadings.Add(new MoistureReading { Date = job.SavedAt, Percent = moisture.Value });
+        saved = await Store.SaveAsync(job);
+        open = false;
+    }
+
+    private void Reset()
+    {
+        saved = null; open = true;
+        species = ""; note = ""; actual = CalculatedOutcome; drying = DryingStatus.Torkar; moisture = null;
+    }
+
+    private static string Fmt(double inches) => inches.ToString("0.##");
+}

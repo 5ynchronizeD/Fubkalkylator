@@ -1,0 +1,165 @@
+@page "/"
+@page "/postning"
+@inject SawSettings Saw
+@inject IJSRuntime JS
+@using System.Globalization
+
+<PageTitle>PostningsMax</PageTitle>
+
+<div class="page-head">
+    <h1>PostningsMax</h1>
+    <p>Ange stockens diameter under bark — ritningen och materiallistan uppdateras direkt.</p>
+</div>
+
+<div class="input-bar">
+    <label for="fub">Diameter under bark [fub]</label>
+    <div class="stepper">
+        <button type="button" @onclick="() => Nudge(-0.25)" aria-label="Minska">−</button>
+        <div class="value-box">
+            <input id="fub" type="number" step="0.25" min="2" max="20"
+                   @bind="Fub" @bind:event="oninput" />
+            <span class="unit">"</span>
+        </div>
+        <button type="button" @onclick="() => Nudge(0.25)" aria-label="Öka">+</button>
+    </div>
+    @if (HasError)
+    {
+        <div class="err">@error</div>
+    }
+    else
+    {
+        <div class="sub">≈ @Mm(Fub) mm</div>
+    }
+    <KerfControl OnChanged="Recalculate" />
+</div>
+
+@if (result is not null)
+{
+    <div class="result-grid">
+        <div class="card figure-card">
+            <div class="card-title">Stockände</div>
+            <LogCrossSection Result="result" />
+            <div class="legend">
+                <span><i class="sw" style="background:#b06a2c"></i> 2" regel/plank</span>
+                <span><i class="sw" style="background:#e3b466"></i> 1" bräda</span>
+                <span><i class="sw dashed"></i> förblock / sågsekvens</span>
+            </div>
+        </div>
+
+        <div class="side-col">
+            <div class="chips">
+                <div class="chip"><span>Block B×H</span><strong>@In(result.BlockWidth) × @In(result.BlockHeight)</strong></div>
+                <div class="chip"><span>Förblock FB×FH</span><strong>@In(result.PreBlockWidth) × @In(result.PreBlockHeight)</strong></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Materiallista</div>
+                <ul class="mat">
+                    @foreach (var line in Materials(result))
+                    {
+                        <li>
+                            <span class="q">@line.Count st</span>
+                            <span class="d">@line.Label</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <details class="card details">
+                <summary>Alla mått</summary>
+                <table>
+                    <tbody>
+                        <tr><td>Blockbredd [B]</td><td>@InMm(result.BlockWidth)</td></tr>
+                        <tr><td>Blockhöjd [H]</td><td>@InMm(result.BlockHeight)</td></tr>
+                        <tr><td>Förblockbredd [FB]</td><td>@InMm(result.PreBlockWidth)</td></tr>
+                        <tr><td>Förblockhöjd [FH]</td><td>@InMm(result.PreBlockHeight)</td></tr>
+                        <tr><td>1"-brädor ur blocket</td><td>@result.BlockOneInchBoards st</td></tr>
+                        <tr><td>2"-reglar/plank ur blocket</td><td>@result.BlockTwoInchBoards st</td></tr>
+                        <tr><td>Sidobrädor 1" / 2"</td><td>@result.SideOneInchBoards / @result.SideTwoInchBoards st</td></tr>
+                        <tr><td>Ändbrädor 1" / 2"</td><td>@result.EndOneInchBoards / @result.EndTwoInchBoards st</td></tr>
+                    </tbody>
+                </table>
+            </details>
+
+            <SaveJobForm StockFub="result.DiameterUnderBark.Inches" Kerf="result.KerfInches"
+                         BlockWidth="result.BlockWidth.Inches" BlockHeight="result.BlockHeight.Inches"
+                         CalculatedOutcome="@Outcome(result)" />
+        </div>
+    </div>
+}
+
+@code {
+    private double fub = 9.75;
+    private PostningResult? result;
+    private string? error;
+
+    private bool HasError => error is not null;
+
+    private double Fub
+    {
+        get => fub;
+        set { fub = value; Recalculate(); }
+    }
+
+    private bool ready;
+
+    protected override void OnInitialized() => Recalculate();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await JS.InvokeAsync<string?>("appStore.get", "pmFub");
+        if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) && f >= 2 && f <= 20)
+        {
+            fub = f; Recalculate(); StateHasChanged();
+        }
+        ready = true;
+    }
+
+    private void Nudge(double delta)
+    {
+        Fub = Math.Round(Math.Clamp(fub + delta, 2, 20) / 0.25) * 0.25;
+    }
+
+    private void Recalculate()
+    {
+        if (ready)
+            _ = JS.InvokeVoidAsync("appStore.set", "pmFub", fub.ToString(CultureInfo.InvariantCulture));
+        try
+        {
+            result = PostningsMax.Compute(fub, Saw.KerfInches);
+            error = null;
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            result = null;
+            error = ex.Message.Split('(')[0].Trim();
+        }
+    }
+
+    private static IEnumerable<(int Count, string Label)> Materials(PostningResult r)
+    {
+        if (r.BlockTwoInchBoards > 0) yield return (r.BlockTwoInchBoards, "2\"-reglar/plank ur blocket");
+        if (r.BlockOneInchBoards > 0) yield return (r.BlockOneInchBoards, "1\"-brädor ur blocket");
+        if (r.SideTwoInchBoards > 0) yield return (r.SideTwoInchBoards, "2\"-sidoreglar/plank");
+        if (r.SideOneInchBoards > 0) yield return (r.SideOneInchBoards, "1\"-sidobrädor");
+        if (r.EndTwoInchBoards > 0) yield return (r.EndTwoInchBoards, "2\"-ändreglar/plank");
+        if (r.EndOneInchBoards > 0) yield return (r.EndOneInchBoards, "1\"-ändbrädor");
+    }
+
+    private static string In(Measure m) => $"{m.Inches:0.##}\"";
+    private static string InMm(Measure m) => $"{m.Inches:0.##}\"  ({m.Millimeters:0.#} mm)";
+    private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0.#");
+
+    private static string Outcome(PostningResult r)
+    {
+        var parts = new List<string>();
+        if (r.BlockTwoInchBoards > 0) parts.Add($"{r.BlockTwoInchBoards}×2\"");
+        if (r.BlockOneInchBoards > 0) parts.Add($"{r.BlockOneInchBoards}×1\"");
+        int sido = r.SideOneInchBoards + r.SideTwoInchBoards;
+        int anda = r.EndOneInchBoards + r.EndTwoInchBoards;
+        if (sido > 0) parts.Add($"{sido} sidobr.");
+        if (anda > 0) parts.Add($"{anda} ändbr.");
+        return $"block {r.BlockWidth.Inches:0.##}\"×{r.BlockHeight.Inches:0.##}\" — " + string.Join(" + ", parts);
+    }
+}

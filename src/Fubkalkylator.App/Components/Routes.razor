@@ -1,0 +1,8 @@
+<Router AppAssembly="typeof(MauiProgram).Assembly"
+        AdditionalAssemblies="new[] { typeof(Fubkalkylator.UI.UIRoot).Assembly }"
+        NotFoundPage="typeof(Pages.NotFound)">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Fubkalkylator.UI.Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

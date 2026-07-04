@@ -1,0 +1,54 @@
+@inject SawSettings Saw
+@inject IJSRuntime JS
+@using System.Globalization
+
+<div class="kerf-bar">
+    <label>Sågspår / klinga</label>
+    <div class="kerf-row">
+        <div class="value-box sm">
+            <input type="number" step="0.5" min="0.5" max="12" @bind="Mm" @bind:event="oninput" />
+            <span class="unit">mm</span>
+        </div>
+        <div class="seg small">
+            <button type="button" class="@(IsChain ? "on" : null)" @onclick="() => SetMm(6.35)">Kedjesåg</button>
+            <button type="button" class="@(IsBand ? "on" : null)" @onclick="() => SetMm(3)">Bandsåg</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private const string StoreKey = "kerfMm";
+
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private double Mm
+    {
+        get => Math.Round(Saw.KerfInches * SawConstants.MmPerInch, 2);
+        set => Apply(value);
+    }
+
+    private bool IsChain => Math.Abs(Mm - 6.35) < 0.05;
+    private bool IsBand => Math.Abs(Mm - 3.0) < 0.05;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var saved = await JS.InvokeAsync<string?>("appStore.get", StoreKey);
+        if (double.TryParse(saved, NumberStyles.Any, CultureInfo.InvariantCulture, out var mm)
+            && mm > 0 && Math.Abs(mm - Mm) > 1e-6)
+        {
+            Saw.KerfInches = mm / SawConstants.MmPerInch;
+            await OnChanged.InvokeAsync();
+            StateHasChanged();
+        }
+    }
+
+    private void SetMm(double mm) => Apply(mm);
+
+    private void Apply(double mm)
+    {
+        Saw.KerfInches = mm / SawConstants.MmPerInch;
+        _ = JS.InvokeVoidAsync("appStore.set", StoreKey, mm.ToString(CultureInfo.InvariantCulture));
+        OnChanged.InvokeAsync();
+    }
+}

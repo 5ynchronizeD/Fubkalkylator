@@ -1,0 +1,92 @@
+@page "/aptering"
+@inject IJSRuntime JS
+@using System.Globalization
+
+<PageTitle>ApteringsMax</PageTitle>
+
+<div class="page-head">
+    <h1>ApteringsMax</h1>
+    <p>Ange önskad blockbredd så får du toppdiametern stocken behöver ha.</p>
+</div>
+
+<div class="input-bar">
+    <label for="b">Önskad blockbredd [B]</label>
+    <div class="stepper">
+        <button type="button" @onclick="() => Nudge(-0.25)" aria-label="Minska">−</button>
+        <div class="value-box">
+            <input id="b" type="number" step="0.25" min="1" max="20"
+                   @bind="BlockWidth" @bind:event="oninput" />
+            <span class="unit">"</span>
+        </div>
+        <button type="button" @onclick="() => Nudge(0.25)" aria-label="Öka">+</button>
+    </div>
+    @if (HasError)
+    {
+        <div class="err">@error</div>
+    }
+</div>
+
+@if (result is not null)
+{
+    <div class="chips">
+        <div class="chip">
+            <span>Toppdiameter under bark [fub]</span>
+            <strong>@InCm(result.TopDiameterUnderBark)</strong>
+        </div>
+        <div class="chip">
+            <span>Toppdiameter på bark [pb]</span>
+            <strong>@InCm(result.TopDiameterOverBark)</strong>
+        </div>
+    </div>
+    <p class="note">Bark antas lägga till 5 % på diametern (fub × 1,05).</p>
+}
+
+@code {
+    private double blockWidth = 7.0;
+    private ApteringResult? result;
+    private string? error;
+
+    private bool HasError => error is not null;
+
+    private double BlockWidth
+    {
+        get => blockWidth;
+        set { blockWidth = value; Recalculate(); }
+    }
+
+    private bool ready;
+
+    protected override void OnInitialized() => Recalculate();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await JS.InvokeAsync<string?>("appStore.get", "aptB");
+        if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var b) && b >= 1 && b <= 20)
+        {
+            blockWidth = b; Recalculate(); StateHasChanged();
+        }
+        ready = true;
+    }
+
+    private void Nudge(double delta)
+        => BlockWidth = Math.Round(Math.Clamp(blockWidth + delta, 1, 20) / 0.25) * 0.25;
+
+    private void Recalculate()
+    {
+        if (ready)
+            _ = JS.InvokeVoidAsync("appStore.set", "aptB", blockWidth.ToString(CultureInfo.InvariantCulture));
+        try
+        {
+            result = ApteringsMax.Compute(blockWidth);
+            error = null;
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            result = null;
+            error = ex.Message.Split('(')[0].Trim();
+        }
+    }
+
+    private static string InCm(Measure m) => $"{m.Inches:0.##}\"  ({m.Centimeters:0.#} cm)";
+}

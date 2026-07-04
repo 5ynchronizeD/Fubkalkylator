@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg width="456" height="456" viewBox="0 0 456 456" version="1.1" xmlns="http://www.w3.org/2000/svg">
+    <!-- Stockände: bark, splintved, block med brädor -->
+    <circle cx="228" cy="228" r="150" fill="#5b3a21" />
+    <circle cx="228" cy="228" r="136" fill="#f0dca6" />
+    <rect x="138" y="128" width="180" height="200" rx="8" fill="#b06a2c" stroke="#4a2f18" stroke-width="6" />
+    <rect x="138" y="190" width="180" height="9" fill="#f0dca6" />
+    <rect x="138" y="257" width="180" height="9" fill="#f0dca6" />
+    <circle cx="228" cy="228" r="7" fill="#3a2513" />
+</svg>

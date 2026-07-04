@@ -1,0 +1,53 @@
+@using System.Globalization
+
+@if (Readings is { Count: > 0 })
+{
+    <svg class="spark" viewBox="0 0 240 72" role="img" aria-label="Torkkurva fukthalt">
+        @if (Readings.Count == 1)
+        {
+            <circle cx="120" cy="36" r="4" fill="#3f8f5e" />
+        }
+        else
+        {
+            <polyline points="@Points" fill="none" stroke="#3f8f5e" stroke-width="2"
+                      vector-effect="non-scaling-stroke" />
+            @for (int i = 0; i < pts.Count; i++)
+            {
+                <circle cx="@F(pts[i].X)" cy="@F(pts[i].Y)" r="3" fill="#3f8f5e" />
+            }
+        }
+    </svg>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<MoistureReading> Readings { get; set; } = new();
+
+    private const double W = 240, H = 72, Pad = 20;
+    private List<(double X, double Y)> pts = new();
+
+    protected override void OnParametersSet()
+    {
+        pts = new();
+        if (Readings.Count < 2) return;
+
+        double t0 = Readings[0].Date.Ticks;
+        double t1 = Readings[^1].Date.Ticks;
+        double span = t1 - t0;
+
+        double min = Readings.Min(r => r.Percent);
+        double max = Readings.Max(r => r.Percent);
+        double range = Math.Max(1, max - min);
+
+        for (int i = 0; i < Readings.Count; i++)
+        {
+            double fx = span > 0 ? (Readings[i].Date.Ticks - t0) / span : (double)i / (Readings.Count - 1);
+            double x = Pad + fx * (W - 2 * Pad);
+            double y = (H - Pad) - (Readings[i].Percent - min) / range * (H - 2 * Pad);
+            pts.Add((x, y));
+        }
+    }
+
+    private string Points => string.Join(" ", pts.Select(p => $"{F(p.X)},{F(p.Y)}"));
+    private static string F(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
+    private static string Pct(double v) => $"{v.ToString("0.#", CultureInfo.InvariantCulture)}%";
+}

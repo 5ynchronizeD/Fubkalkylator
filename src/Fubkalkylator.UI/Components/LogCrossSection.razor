@@ -1,0 +1,16 @@
+@* Dynamisk stockände. Själva SVG:n byggs i Fubkalkylator.Core.CrossSectionSvg
+   så att samma ritning kan återanvändas av en framtida MAUI-app.
+   Ange BlockPieces för att rita en egen blockuppdelning (t.ex. måltjocklek). *@
+
+@((MarkupString)Svg)
+
+@code {
+    [Parameter, EditorRequired] public PostningResult Result { get; set; } = default!;
+
+    /// <summary>Valfri egen blockuppdelning. Utelämnas → ordinarie 1"/2"-uppdelning.</summary>
+    [Parameter] public IReadOnlyList<Piece>? BlockPieces { get; set; }
+
+    private string Svg => BlockPieces is null
+        ? CrossSectionSvg.Render(Result)
+        : CrossSectionSvg.Render(Result, BlockPieces);
+}

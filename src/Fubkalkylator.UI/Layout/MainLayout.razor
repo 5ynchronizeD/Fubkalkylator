@@ -1,0 +1,49 @@
+@inherits LayoutComponentBase
+@inject IJSRuntime JS
+
+<div class="app-shell">
+    <header class="appbar">
+        <span class="logo" aria-hidden="true">🪵</span>
+        <span class="app-name">Fubkalkylator</span>
+        <button class="theme-toggle" @onclick="ToggleTheme"
+                title="@(isDark ? "Byt till ljust läge" : "Byt till mörkt läge")"
+                aria-label="Växla mörkt/ljust läge">
+            @(isDark ? "☀️" : "🌙")
+        </button>
+    </header>
+
+    <NavMenu />
+
+    <main class="content">
+        <article>
+            @Body
+        </article>
+    </main>
+
+    <footer class="app-footer">Fubkalkylator v@AppVersion</footer>
+</div>
+
+@code {
+    private static readonly string AppVersion =
+        typeof(UIRoot).Assembly.GetName().Version is { } v
+            ? $"{v.Major}.{v.Minor}.{v.Build}"
+            : "?";
+
+    private bool isDark;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var theme = await JS.InvokeAsync<string>("themeInit");
+            isDark = theme == "dark";
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        isDark = !isDark;
+        await JS.InvokeVoidAsync("setTheme", isDark ? "dark" : "light");
+    }
+}
