@@ -98,6 +98,8 @@ else if (mode == Mode.MyStock)
                      TargetThickness="thickness" TargetWidth="FitWidth"
                      BlockWidth="fit.Postning.BlockWidth.Inches" BlockHeight="fit.Postning.BlockHeight.Inches"
                      CalculatedOutcome="@($"{fit.PieceCount} st {DimFor(FitWidth)}")" />
+        <SawScheduleCard Result="fit.Postning" />
+        <StepSawVisual Result="fit.Postning" />
     }
 }
 else if (widthAny)
@@ -162,6 +164,8 @@ else if (result is not null)
                  TargetThickness="thickness" TargetWidth="width"
                  BlockWidth="result.Postning.BlockWidth.Inches" BlockHeight="result.Postning.BlockHeight.Inches"
                  CalculatedOutcome="@($"{result.TargetPieceCount} st {Dim}")" />
+    <SawScheduleCard Result="result.Postning" />
+    <StepSawVisual Result="result.Postning" />
 }
 else
 {
