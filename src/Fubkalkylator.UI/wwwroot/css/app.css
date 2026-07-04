@@ -196,6 +196,7 @@ ul.mat .d { color: var(--ink); }
 
 /* ---------- Detaljtabell ---------- */
 .details summary { cursor: pointer; font-weight: 600; color: var(--forest); }
+[data-theme="dark"] .details summary { color: #bfe0c9; }
 .details table { width: 100%; margin-top: .7rem; border-collapse: collapse; }
 .details td { padding: .35rem 0; border-bottom: 1px solid var(--line); font-size: .93rem; }
 .details td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
@@ -240,10 +241,12 @@ ul.mat .d { color: var(--ink); }
 .job-photo { display: block; max-width: 100%; max-height: 220px; border-radius: 8px; margin: .5rem 0; object-fit: cover; }
 
 /* ---------- Orderlista ---------- */
-.order-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.order-table { width: 100%; min-width: 30rem; border-collapse: collapse; font-size: .85rem; }
 .order-table th, .order-table td { padding: .3rem .35rem; border-top: 1px solid var(--line); text-align: left; }
 .order-table th { color: var(--muted); font-weight: 600; border-top: 0; }
-.order-table input { width: 4.2rem; padding: .3rem .35rem; border: 1px solid var(--line); border-radius: 6px; background: var(--input-bg, #fff); color: inherit; }
+.order-table input { width: 3.4rem; padding: .3rem .35rem; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--ink); }
+[data-theme="dark"] .order-table input { background: #1b1811; }
 .order-table .na { color: var(--muted); font-style: italic; }
 .order-table tfoot tr.sum td { border-top: 2px solid var(--line); font-weight: 700; }
 .order-actions { margin-top: .7rem; }
@@ -266,6 +269,12 @@ ul.mat .d { color: var(--ink); }
 .kerf-row { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; }
 .value-box.sm { width: 110px; }
 .value-box.sm input { font-size: 1.15rem; padding: .35rem 1.3rem .35rem .4rem; }
+.value-box.sm .unit { font-size: .78rem; right: .55rem; }
+/* Rutor med längre enheter (kr/m³, cm/m) behöver mer plats. */
+.vv-prices .value-box.sm { width: 132px; }
+.vv-prices .value-box.sm input { padding-right: 3rem; }
+.shrink-inputs .value-box.sm { width: 128px; }
+.shrink-inputs .value-box.sm input { padding-right: 2.5rem; }
 .target-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .8rem; }
 .target-row .times { color: var(--muted); font-weight: 700; font-size: 1.4rem; align-self: center; }
 .dim-field { display: flex; flex-direction: column; gap: .3rem; }
