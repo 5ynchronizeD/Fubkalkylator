@@ -29,8 +29,11 @@
 @code {
     [Parameter] public PostningResult? Result { get; set; }
 
+    /// <summary>Blockets uppdelning (t.ex. måldimension). Null = blockets standardsnitt (1"/2").</summary>
+    [Parameter] public IReadOnlyList<Piece>? BlockPieces { get; set; }
+
     private IReadOnlyList<SawCut> Cuts =>
-        Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod);
+        Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, BlockPieces);
 
     private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0");
     private static string Suffix(SawCut c) => c.AboveCenter is bool a ? (a ? " ovan centrum" : " under centrum") : " från centrum";

@@ -97,8 +97,10 @@ public static class CrossSectionSvg
     /// aktuella snittet markeras med linje + mått när <paramref name="showCutLine"/>.
     /// <paramref name="completedCuts"/> = antal gjorda snitt (0 = hel stock).
     /// </summary>
-    public static string RenderStepped(PostningResult r, int completedCuts, SawMethod method, bool showCutLine)
+    public static string RenderStepped(PostningResult r, int completedCuts, SawMethod method, bool showCutLine,
+        IReadOnlyList<Piece>? blockPieces = null)
     {
+        var blockList = blockPieces ?? PostningLayout.BlockPieces(r);
         double B = r.BlockWidth.Inches, H = r.BlockHeight.Inches;
         double bh = B / 2, hh = H / 2;
         double woodR = r.DiameterUnderBark.Inches / 2.0;
@@ -107,7 +109,7 @@ public static class CrossSectionSvg
 
         var side = PostningLayout.SidePiecesPerSide(r);
         var end = PostningLayout.EndPiecesPerSide(r);
-        var cuts = SawSequence.Compute(r, method);
+        var cuts = SawSequence.Compute(r, method, blockList);
 
         // Nuvarande platta yta per sida = innersta redan gjorda snittet på den sidan.
         double? FlatOf(SawFace f)
@@ -145,7 +147,7 @@ public static class CrossSectionSvg
         sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(woodR)}\" fill=\"url(#wood)\" stroke=\"#c9a86a\" stroke-width=\"1\" vector-effect=\"non-scaling-stroke\"/>");
         sb.Append("<g clip-path=\"url(#log)\">");
         sb.Append(CultureInfo.InvariantCulture, $"<rect x=\"{F(-bh)}\" y=\"{F(-hh)}\" width=\"{F(B)}\" height=\"{F(H)}\" fill=\"#e9cf95\"/>");
-        foreach (var p in PostningLayout.BlockPieces(r))
+        foreach (var p in blockList)
             Rect(sb, -bh, -hh + p.Start, B, p.Thickness, Fill(p.Kind));
         for (int i = 0; i < side.Count; i++)
         {

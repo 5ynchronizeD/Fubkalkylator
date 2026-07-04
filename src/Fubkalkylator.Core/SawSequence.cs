@@ -39,7 +39,8 @@ public sealed record SawCut
 /// </summary>
 public static class SawSequence
 {
-    public static IReadOnlyList<SawCut> Compute(PostningResult r, SawMethod method = SawMethod.Block180)
+    public static IReadOnlyList<SawCut> Compute(PostningResult r, SawMethod method = SawMethod.Block180,
+        IReadOnlyList<Piece>? blockPieces = null)
     {
         double bh = r.BlockWidth.Inches / 2.0, hh = r.BlockHeight.Inches / 2.0;
         var side = PostningLayout.SidePiecesPerSide(r);
@@ -87,9 +88,9 @@ public static class SawSequence
             });
         }
 
-        // Delning av blocket (block upprätt).
+        // Delning av blocket (block upprätt). Använd måldimensionens uppdelning om given.
         rot += ShortestDelta(prevAngle, FaceAngle(SawFace.Block));
-        var block = PostningLayout.BlockPieces(r);
+        var block = blockPieces ?? PostningLayout.BlockPieces(r);
         double? prevSplit = null;
         for (int i = 0; i < block.Count - 1; i++)
         {

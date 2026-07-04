@@ -27,7 +27,7 @@
             {
                 var row = rows[i];
                 var line = plan is not null && i < plan.Lines.Count ? plan.Lines[i] : null;
-                <tr>
+                <tr @key="row">
                     <td><input type="number" step="1" min="1" max="300" @bind="row.ThickMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
                     <td><input type="number" step="1" min="1" max="520" @bind="row.WidthMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
                     <td><input type="number" step="1" min="0" max="9999" @bind="row.Qty" @bind:event="oninput" @bind:after="Recalculate" /></td>
@@ -41,7 +41,7 @@
                     {
                         <td colspan="3" class="na">går inte inom 20" stock</td>
                     }
-                    <td><button class="linklike danger" @onclick="() => RemoveRow(i)">✕</button></td>
+                    <td><button class="linklike danger" @onclick="() => RemoveRow(row)">✕</button></td>
                 </tr>
             }
         </tbody>
@@ -91,7 +91,7 @@
     }
 
     private void AddRow() { rows.Add(new Row()); Recalculate(); }
-    private void RemoveRow(int i) { if (i >= 0 && i < rows.Count) rows.RemoveAt(i); if (rows.Count == 0) rows.Add(new Row()); Recalculate(); }
+    private void RemoveRow(Row row) { rows.Remove(row); if (rows.Count == 0) rows.Add(new Row()); Recalculate(); }
 
     private void Recalculate()
     {
