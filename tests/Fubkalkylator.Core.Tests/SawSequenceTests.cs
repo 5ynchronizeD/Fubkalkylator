@@ -15,12 +15,19 @@ public class SawSequenceTests
     }
 
     [Fact]
-    public void First_cut_starts_at_top_with_no_rotation()
+    public void Block_flips_180_between_the_first_two_faces()
     {
-        var cuts = SawSequence.Compute(PostningsMax.Compute(9.75));
-        Assert.Equal(SawFace.Top, cuts[0].Face);
-        Assert.Equal(0, cuts[0].RotationDegrees);
-        Assert.Null(cuts[0].StepFromPreviousInches);   // första på sidan = från centrum
+        var cuts = SawSequence.Compute(PostningsMax.Compute(9.75), SawMethod.Block180)
+            .Where(c => c.Face != SawFace.Block).ToList();
+        var first = cuts[0].Face;
+        var second = cuts.First(c => c.Face != first);
+        // Första två sidorna ska vara motstående (180° isär).
+        bool opposite = (first, second.Face) is
+            (SawFace.Left, SawFace.Right) or (SawFace.Right, SawFace.Left) or
+            (SawFace.Top, SawFace.Bottom) or (SawFace.Bottom, SawFace.Top);
+        Assert.True(opposite);
+        double delta = Math.Abs(second.RotationDegrees - cuts[0].RotationDegrees) % 360;
+        Assert.Equal(180, delta, 3);
     }
 
     [Fact]

@@ -54,17 +54,20 @@ public static class SawSequence
             [SawFace.Right] = FacePlanes(side, bh, "Sidobräda"),
         };
 
-        // Sidordning: börja alltid uppåt (Top) så första snittet inte kräver rotation.
-        var faceOrder = new[] { SawFace.Top, SawFace.Left, SawFace.Bottom, SawFace.Right };
-        var order = method == SawMethod.Varv90
-            ? RoundRobin(planes, faceOrder)      // vänd 90° varje snitt
-            : Sequential(planes, faceOrder);     // en sida klart, sedan nästa
+        // Blocksågning: motstående sidor först (180°-vändning) — de två första
+        //   sidorna tar ut blockets bredd, sedan 90° till ändarna, sedan delning.
+        // Varvsågning: ett snitt, vänd 90°, runt stocken.
+        var order = method switch
+        {
+            SawMethod.Varv90 => RoundRobin(planes, new[] { SawFace.Top, SawFace.Left, SawFace.Bottom, SawFace.Right }),
+            _ => Sequential(planes, new[] { SawFace.Left, SawFace.Right, SawFace.Top, SawFace.Bottom }),
+        };
 
         var cuts = new List<SawCut>();
         int n = 1;
         var lastDist = new Dictionary<SawFace, double>();
-        double rot = 0, prevAngle = FaceAngle(SawFace.Top);
-        bool first = true;
+        double prevAngle = FaceAngle(order.Count > 0 ? order[0].Item1 : SawFace.Top);
+        double rot = prevAngle;   // första snittets sida vänds uppåt
 
         foreach (var (face, idx) in order)
         {
@@ -73,9 +76,8 @@ public static class SawSequence
             lastDist[face] = dist;
 
             double angle = FaceAngle(face);
-            rot += first ? 0 : ShortestDelta(prevAngle, angle);
+            rot += ShortestDelta(prevAngle, angle);
             prevAngle = angle;
-            first = false;
 
             cuts.Add(new SawCut
             {

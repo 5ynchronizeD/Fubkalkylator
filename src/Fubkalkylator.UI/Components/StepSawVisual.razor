@@ -12,9 +12,9 @@
             <label>Sågordning</label>
             <div class="seg small">
                 <button type="button" class="@(Saw.SawMethod == SawMethod.Block180 ? "on" : null)"
-                        @onclick="() => SetMethod(SawMethod.Block180)">Vänd 180° (block)</button>
+                        @onclick="() => SetMethod(SawMethod.Block180)">Blocksågning</button>
                 <button type="button" class="@(Saw.SawMethod == SawMethod.Varv90 ? "on" : null)"
-                        @onclick="() => SetMethod(SawMethod.Varv90)">Vänd 90° (varv)</button>
+                        @onclick="() => SetMethod(SawMethod.Varv90)">Varvsågning</button>
             </div>
         </div>
 
