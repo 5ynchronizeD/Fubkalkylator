@@ -121,8 +121,15 @@ public static class CrossSectionSvg
         double big = barkR + pad; // ingen platt sida än
         double rx = FlatOf(SawFace.Right) ?? big;
         double lx = FlatOf(SawFace.Left) ?? big;
-        double ty = FlatOf(SawFace.Top) ?? big;
         double by = FlatOf(SawFace.Bottom) ?? big;
+
+        // Toppen: under delningen kapas blocket uppifrån, så toppen flyttas ned
+        // förbi varje gjort delningssnitt (avsågade brädor försvinner).
+        double? blockTopSigned = null;
+        for (int i = 0; i < completedCuts && i < cuts.Count; i++)
+            if (cuts[i].Face == SawFace.Block)
+                blockTopSigned = cuts[i].AboveCenter == true ? -cuts[i].DistanceFromCenterInches : cuts[i].DistanceFromCenterInches;
+        double ty = blockTopSigned is double bs ? -bs : (FlatOf(SawFace.Top) ?? big);
 
         var sb = new StringBuilder();
         sb.Append(CultureInfo.InvariantCulture, $"<svg class=\"log-svg\" viewBox=\"0 0 {F(vb)} {F(vb)}\" role=\"img\" aria-label=\"Stockände, steg {completedCuts}\">");
@@ -208,13 +215,13 @@ public static class CrossSectionSvg
         {
             double x = woodR * 0.18;
             DimLine(sb, x, refCoord, x, cutCoord);
-            DimText(sb, x + fs * 0.4, (refCoord + cutCoord) / 2.0 + fs * 0.35, txt, fs, "start");
+            DimText(sb, x + fs * 0.4, (refCoord + cutCoord) / 2.0 + fs * 0.35, txt, fs, "start", cut.RotationDegrees);
         }
         else
         {
             double y = -woodR * 0.18;
             DimLine(sb, refCoord, y, cutCoord, y);
-            DimText(sb, (refCoord + cutCoord) / 2.0, y - fs * 0.35, txt, fs, "middle");
+            DimText(sb, (refCoord + cutCoord) / 2.0, y - fs * 0.35, txt, fs, "middle", cut.RotationDegrees);
         }
     }
 
@@ -226,9 +233,12 @@ public static class CrossSectionSvg
         sb.Append(CultureInfo.InvariantCulture, $"<circle cx=\"{F(x2)}\" cy=\"{F(y2)}\" r=\"0.09\" fill=\"#2f5233\"/>");
     }
 
-    private static void DimText(StringBuilder sb, double x, double y, string text, double fontSize, string anchor)
+    // Texten motroteras med bildens rotation så den alltid står rätt (aldrig upp och ner).
+    private static void DimText(StringBuilder sb, double x, double y, string text, double fontSize, string anchor, double imageRotationDeg)
         => sb.Append(CultureInfo.InvariantCulture,
-            $"<text x=\"{F(x)}\" y=\"{F(y)}\" font-size=\"{F(fontSize)}\" text-anchor=\"{anchor}\" fill=\"#1e3a24\" stroke=\"#fbf7ec\" stroke-width=\"{F(fontSize * 0.2)}\" paint-order=\"stroke\" font-family=\"sans-serif\" font-weight=\"700\">{text}</text>");
+            $"<text x=\"{F(x)}\" y=\"{F(y)}\" font-size=\"{F(fontSize)}\" text-anchor=\"{anchor}\" " +
+            $"transform=\"rotate({F(-imageRotationDeg)} {F(x)} {F(y)})\" " +
+            $"fill=\"#1e3a24\" stroke=\"#fbf7ec\" stroke-width=\"{F(fontSize * 0.2)}\" paint-order=\"stroke\" font-family=\"sans-serif\" font-weight=\"700\">{text}</text>");
 
     private static void Rect(StringBuilder sb, double x, double y, double w, double h, string fill)
         => sb.Append(CultureInfo.InvariantCulture,
