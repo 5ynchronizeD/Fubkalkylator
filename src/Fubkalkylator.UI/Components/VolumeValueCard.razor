@@ -69,6 +69,7 @@
     private double lengthMeters = 4.0;
     private bool ready;
     private PostningEconomyResult? economy;
+    private PostningEconomyResult? lastSent;
 
     private double LengthMeters
     {
@@ -112,7 +113,14 @@
             double lengthInches = Math.Max(0, lengthMeters) / SawConstants.MetersPerInch;
             economy = PostningEconomy.Compute(Result, lengthInches, Saw.Prices);
         }
-        _ = OnEconomyChanged.InvokeAsync(economy);
+
+        // Anropa bara callbacken när värdet faktiskt ändrats — annars uppstår en
+        // oändlig render-loop (parent re-renderar → OnParametersSet → hit igen).
+        if (!Equals(economy, lastSent))
+        {
+            lastSent = economy;
+            _ = OnEconomyChanged.InvokeAsync(economy);
+        }
     }
 
     private async Task<double> Load(string key, double fallback, double min, double max)
