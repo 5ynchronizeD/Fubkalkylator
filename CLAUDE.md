@@ -6,21 +6,18 @@ Se `README.md` för projektstruktur och byggkommandon.
 
 ## Release-rutin vid nya versioner
 
-När en ny version görs (efter att `<Version>` i `Directory.Build.props` bumpats):
+När en ny version görs, bumpa `<Version>` i `Directory.Build.props`, commita och pusha till main.
 
-1. **Pusha en version till GitHub.** Commita ändringarna och pusha till
-   `origin` (https://github.com/5ynchronizeD/Fubkalkylator.git), gärna med en
-   version-tagg:
-   ```bash
-   git commit -am "vX.Y.Z: <sammanfattning>"
-   git tag vX.Y.Z
-   git push origin main --tags
-   ```
-   > Pushen kan behöva köras interaktivt av användaren (`!git push ...`) om
-   > GitHub-inloggning krävs.
+1. **GitHub-release skapas automatiskt.** Workflowen `.github/workflows/release.yml`
+   körs vid push till `main`: om versionen är ny (ingen tagg `vX.Y.Z` finns) körs
+   testerna, APK:n byggs och en release med APK:n bifogad skapas. Bumpas inte
+   versionen händer inget.
+   > OBS: CI signerar med en egen (debug-)nyckel, så CI-APK:n och lokalt byggda
+   > APK:er kan ha olika signaturer (går inte att uppgradera över varandra).
 
-2. **Bygg och kopiera APK:n till Google Drive.** Bygg Android-appen i Release
-   och kopiera den signerade APK:n till `D:\Min enhet` (Google Drive på datorn):
+2. **Kopiera APK:n till Google Drive** (fortfarande manuellt/lokalt — CI når inte
+   datorns Drive). Bygg Android-appen i Release och kopiera den signerade APK:n
+   till `D:\Min enhet`:
    ```bash
    dotnet build src/Fubkalkylator.App/Fubkalkylator.App.csproj -f net10.0-android -c Release \
      -p:JavaSdkDirectory="C:\Program Files\Android\Android Studio\jbr" \

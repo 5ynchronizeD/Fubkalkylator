@@ -1,0 +1,82 @@
+name: Release
+
+# Vid push till main: om versionen i Directory.Build.props är ny (ingen tagg
+# vX.Y.Z finns än) körs testerna, APK:n byggs och en GitHub-release skapas.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Läs version från Directory.Build.props
+        id: ver
+        run: echo "version=$(grep -oPm1 '(?<=<Version>)[^<]+' Directory.Build.props)" >> "$GITHUB_OUTPUT"
+
+      - name: Finns releasen redan?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.ver.outputs.version }}" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v${{ steps.ver.outputs.version }} finns redan — hoppar över."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup JDK 17
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup .NET 10
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Installera MAUI Android-workload
+        if: steps.check.outputs.exists == 'false'
+        run: dotnet workload install maui-android
+
+      - name: Kör tester
+        if: steps.check.outputs.exists == 'false'
+        run: dotnet test tests/Fubkalkylator.Core.Tests/Fubkalkylator.Core.Tests.csproj -c Release --nologo
+
+      - name: Bygg Android-APK (Release)
+        if: steps.check.outputs.exists == 'false'
+        run: >
+          dotnet build src/Fubkalkylator.App/Fubkalkylator.App.csproj
+          -f net10.0-android -c Release --nologo
+          -p:AndroidSdkDirectory="$ANDROID_SDK_ROOT"
+          -p:AcceptAndroidSDKLicenses=True
+
+      - name: Hitta signerad APK
+        if: steps.check.outputs.exists == 'false'
+        id: apk
+        run: |
+          path=$(find src/Fubkalkylator.App/bin/Release -name '*-Signed.apk' | head -1)
+          if [ -z "$path" ]; then echo "Ingen signerad APK hittades" >&2; exit 1; fi
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+
+      - name: Skapa release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create "v${{ steps.ver.outputs.version }}"
+          "${{ steps.apk.outputs.path }}#Fubkalkylator-v${{ steps.ver.outputs.version }}.apk"
+          --repo "$GITHUB_REPOSITORY"
+          --title "v${{ steps.ver.outputs.version }}"
+          --generate-notes
