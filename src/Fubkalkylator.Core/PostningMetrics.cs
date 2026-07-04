@@ -20,6 +20,17 @@ public static class PostningMetrics
          + (r.EndOneInchBoards + 2.0 * r.EndTwoInchBoards) * r.BlockWidth.Inches;
 
     /// <summary>
+    /// Ungefärlig area för brädorna som sågas ur själva blocket, tum².
+    /// (1"- och 2"-brädor som spänner över blockbredden.)
+    /// </summary>
+    public static double BlockBoardArea(PostningResult r)
+        => (r.BlockOneInchBoards + 2.0 * r.BlockTwoInchBoards) * r.BlockWidth.Inches;
+
+    /// <summary>Total ungefärlig virkesarea (block + biprodukter), tum².</summary>
+    public static double TimberArea(PostningResult r)
+        => BlockBoardArea(r) + ByproductArea(r);
+
+    /// <summary>
     /// Utbyte som andel (0–1) av stockens area: blockbrädornas area (anges via
     /// <paramref name="blockBoardArea"/>) plus biprodukter, delat med stockarean.
     /// </summary>
@@ -33,4 +44,8 @@ public static class PostningMetrics
     /// <summary>Utbyte i procent, avrundat till heltal.</summary>
     public static int YieldPercent(PostningResult r, double blockBoardArea)
         => (int)Math.Round(YieldFraction(r, blockBoardArea) * 100.0);
+
+    /// <summary>Utbyte i procent utifrån den uppskattade blockarean.</summary>
+    public static int YieldPercent(PostningResult r)
+        => YieldPercent(r, BlockBoardArea(r));
 }

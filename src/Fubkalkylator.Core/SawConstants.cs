@@ -18,6 +18,15 @@ public static class SawConstants
     /// <summary>Centimeter per tum.</summary>
     public const double CmPerInch = 2.54;
 
+    /// <summary>Meter per tum.</summary>
+    public const double MetersPerInch = 0.0254;
+
+    /// <summary>Kubiktum per board foot (1 fot × 1 fot × 1 tum = 144 tum³).</summary>
+    public const double CubicInchesPerBoardFoot = 144.0;
+
+    /// <summary>Kubikmeter per kubiktum (0,0254³ ≈ 1,6387·10⁻⁵).</summary>
+    public const double CubicMetersPerCubicInch = MetersPerInch * MetersPerInch * MetersPerInch;
+
     /// <summary>Utrymme en bräda/regel tar: tjocklek + ett sågspår.</summary>
     public static double Slot(double boardThicknessInches, double kerfInches)
         => boardThicknessInches + kerfInches;

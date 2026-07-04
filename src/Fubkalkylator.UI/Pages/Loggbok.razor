@@ -1,5 +1,9 @@
 @page "/loggbok"
 @inject ISawJobStore Store
+@inject SawSettings Saw
+@inject IJSRuntime JS
+@using System.Globalization
+@using System.Text.Json
 
 <PageTitle>Loggbok</PageTitle>
 
@@ -8,10 +12,27 @@
     <p>Sparade sågningar — beräkning mot faktiskt utfall, och vad som torkar.</p>
 </div>
 
-<div class="seg small logfilter">
-    <button class="@(filter is null ? "on" : null)" @onclick="() => SetFilter(null)">Alla</button>
-    <button class="@(filter == DryingStatus.Torkar ? "on" : null)" @onclick="() => SetFilter(DryingStatus.Torkar)">Torkar</button>
-    <button class="@(filter == DryingStatus.Klar ? "on" : null)" @onclick="() => SetFilter(DryingStatus.Klar)">Klar</button>
+<div class="logbar">
+    <div class="seg small logfilter">
+        <button class="@(filter is null ? "on" : null)" @onclick="() => SetFilter(null)">Alla</button>
+        <button class="@(filter == DryingStatus.Torkar ? "on" : null)" @onclick="() => SetFilter(DryingStatus.Torkar)">Torkar</button>
+        <button class="@(filter == DryingStatus.Klar ? "on" : null)" @onclick="() => SetFilter(DryingStatus.Klar)">Klar</button>
+    </div>
+    <label class="target-mc">Målfukthalt
+        <span class="value-box sm">
+            <input type="number" step="1" min="0" max="30" @bind="TargetMc" @bind:event="oninput" />
+            <span class="unit">%</span>
+        </span>
+    </label>
+</div>
+
+<div class="logtools">
+    <input class="fld search" placeholder="Sök trädslag eller anteckning…" @bind="search" @bind:event="oninput" />
+    @if (jobs is { Count: > 0 })
+    {
+        <button class="btn ghost sm" @onclick="ExportCsv">Exportera CSV</button>
+        <button class="btn ghost sm" @onclick="BackupJson">Säkerhetskopiera</button>
+    }
 </div>
 
 @if (jobs is null)
@@ -43,6 +64,11 @@ else
                 <div class="job-note">📝 @j.Note</div>
             }
 
+            @if (!string.IsNullOrEmpty(j.PhotoDataUrl))
+            {
+                <img class="job-photo" src="@j.PhotoDataUrl" alt="Foto på sågningen" loading="lazy" />
+            }
+
             <div class="moisture">
                 <div class="moisture-head">
                     <span class="lbl">Fukthalt</span>
@@ -64,6 +90,18 @@ else
                 @if (j.MoistureReadings.Count >= 2)
                 {
                     <MoistureSparkline Readings="j.MoistureReadings" />
+                }
+
+                @if (Forecast(j) is DryingEstimate est)
+                {
+                    @if (est.AlreadyReached)
+                    {
+                        <div class="forecast ok">✓ Nått målfukt (@Pct(Saw.TargetMoisturePercent))</div>
+                    }
+                    else if (est.TargetDate is DateTime d)
+                    {
+                        <div class="forecast">📉 Prognos: klar ~ <strong>@d.ToString("yyyy-MM-dd")</strong> · @est.SlopePercentPerDay.ToString("0.0") %/dygn</div>
+                    }
                 }
 
                 @if (expanded.Contains(j.Id))
@@ -109,13 +147,61 @@ else
 @code {
     private IReadOnlyList<SawJob>? jobs;
     private DryingStatus? filter;
+    private string search = "";
     private readonly HashSet<int> expanded = new();
     private double? newPct;
 
     private List<SawJob> Filtered => (jobs ?? new List<SawJob>())
-        .Where(j => filter is null || j.Drying == filter).ToList();
+        .Where(j => filter is null || j.Drying == filter)
+        .Where(j => string.IsNullOrWhiteSpace(search) || Matches(j, search.Trim()))
+        .ToList();
+
+    private static bool Matches(SawJob j, string q)
+        => (j.Species?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (j.Note?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (j.ActualOutcome?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (j.CalculatedOutcome?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private async Task ExportCsv()
+    {
+        var csv = LogbookExport.ToCsv(jobs ?? new List<SawJob>());
+        await JS.InvokeVoidAsync("downloadText", "loggbok.csv", "text/csv", csv);
+    }
+
+    private async Task BackupJson()
+    {
+        var json = JsonSerializer.Serialize(jobs ?? (IReadOnlyList<SawJob>)new List<SawJob>(),
+            new JsonSerializerOptions { WriteIndented = true });
+        await JS.InvokeVoidAsync("downloadText", "loggbok-backup.json", "application/json", json);
+    }
+
+    private bool ready;
 
     protected override async Task OnInitializedAsync() => await Reload();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await JS.InvokeAsync<string?>("appStore.get", "targetMc");
+        if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 30)
+        {
+            Saw.TargetMoisturePercent = v;
+            StateHasChanged();
+        }
+        ready = true;
+    }
+
+    private double TargetMc
+    {
+        get => Saw.TargetMoisturePercent;
+        set
+        {
+            Saw.TargetMoisturePercent = value;
+            if (ready) _ = JS.InvokeVoidAsync("appStore.set", "targetMc", value.ToString(CultureInfo.InvariantCulture));
+        }
+    }
+
+    private DryingEstimate? Forecast(SawJob j) => DryingForecast.Estimate(j.MoistureReadings, Saw.TargetMoisturePercent);
 
     private async Task Reload() => jobs = await Store.GetAllAsync();
 

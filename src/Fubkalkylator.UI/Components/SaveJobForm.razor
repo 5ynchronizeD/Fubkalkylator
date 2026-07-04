@@ -1,4 +1,5 @@
 @inject ISawJobStore Store
+@inject IJSRuntime JS
 
 <div class="savejob">
     @if (!open && saved is null)
@@ -35,6 +36,14 @@
             <label>Anteckning</label>
             <input class="fld" @bind="note" placeholder="valfritt" />
 
+            <label>Foto (valfritt)</label>
+            <input class="fld" type="file" accept="image/*" capture="environment"
+                   @ref="photoInput" @onchange="OnPhotoChange" />
+            @if (!string.IsNullOrEmpty(photo))
+            {
+                <img class="photo-preview" src="@photo" alt="Foto på sågningen" />
+            }
+
             <div class="jobform-actions">
                 <button class="btn" @onclick="Save">Spara</button>
                 <button class="linklike" @onclick="() => open = false">Avbryt</button>
@@ -51,6 +60,10 @@
     [Parameter] public double? TargetWidth { get; set; }
     [Parameter] public double BlockWidth { get; set; }
     [Parameter] public double BlockHeight { get; set; }
+    [Parameter] public double? StockLength { get; set; }
+    [Parameter] public double? TimberVolumeM3 { get; set; }
+    [Parameter] public double? EstimatedValue { get; set; }
+    [Parameter] public int? YieldPercent { get; set; }
     [Parameter] public string CalculatedOutcome { get; set; } = "";
 
     private bool open;
@@ -60,6 +73,14 @@
     private string note = "";
     private double? moisture;
     private DryingStatus drying = DryingStatus.Torkar;
+    private ElementReference photoInput;
+    private string? photo;
+
+    private async Task OnPhotoChange()
+    {
+        photo = await JS.InvokeAsync<string?>("readResizedImage", photoInput, 900, 0.7);
+        StateHasChanged();
+    }
 
     protected override void OnParametersSet()
     {
@@ -78,10 +99,15 @@
             TargetWidthInches = TargetWidth,
             BlockWidthInches = BlockWidth,
             BlockHeightInches = BlockHeight,
+            StockLengthInches = StockLength,
+            TimberVolumeM3 = TimberVolumeM3,
+            EstimatedValue = EstimatedValue,
+            YieldPercent = YieldPercent,
             CalculatedOutcome = CalculatedOutcome,
             Species = species.Trim(),
             ActualOutcome = actual.Trim(),
             Note = note.Trim(),
+            PhotoDataUrl = photo,
             Drying = drying,
             DryingStart = drying == DryingStatus.Torkar ? DateTime.Now : null,
         };
@@ -94,7 +120,7 @@
     private void Reset()
     {
         saved = null; open = true;
-        species = ""; note = ""; actual = CalculatedOutcome; drying = DryingStatus.Torkar; moisture = null;
+        species = ""; note = ""; actual = CalculatedOutcome; drying = DryingStatus.Torkar; moisture = null; photo = null;
     }
 
     private static string Fmt(double inches) => inches.ToString("0.##");

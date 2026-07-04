@@ -25,6 +25,38 @@
             get: function (k) { return localStorage.getItem(k); },
             set: function (k, v) { localStorage.setItem(k, v); }
         };
+        // Läs vald bild från ett file-input, skala ner och returnera som JPEG data-URL.
+        window.readResizedImage = function (input, maxDim, quality) {
+            return new Promise(function (resolve) {
+                var file = input && input.files && input.files[0];
+                if (!file) { resolve(null); return; }
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    var img = new Image();
+                    img.onload = function () {
+                        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+                        var cw = Math.round(img.width * scale), ch = Math.round(img.height * scale);
+                        var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+                        c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+                        resolve(c.toDataURL('image/jpeg', quality));
+                    };
+                    img.onerror = function () { resolve(null); };
+                    img.src = e.target.result;
+                };
+                reader.onerror = function () { resolve(null); };
+                reader.readAsDataURL(file);
+            });
+        };
+        // Ladda ner text som fil (export/säkerhetskopia).
+        window.downloadText = function (filename, mime, text) {
+            var blob = new Blob([text], { type: mime + ';charset=utf-8' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url; a.download = filename;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        };
         window.themeInit();
     </script>
 </head>

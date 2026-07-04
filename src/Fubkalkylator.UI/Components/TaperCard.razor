@@ -1,0 +1,76 @@
+@inject IJSRuntime JS
+@using System.Globalization
+@using Fubkalkylator.Core
+
+<div class="card tapercard">
+    <div class="card-title">Avsmalning (taper)</div>
+    <p class="hint">En stock smalnar av mot toppen. Ange toppdiameter och avsmalning
+        så räknar appen fram grovändens och mittens diameter.</p>
+
+    <div class="shrink-inputs">
+        <label>Toppdiameter
+            <span class="value-box sm">
+                <input type="number" step="1" min="0" max="150" @bind="TopCm" @bind:event="oninput" />
+                <span class="unit">cm</span>
+            </span>
+        </label>
+        <label>Avsmalning
+            <span class="value-box sm">
+                <input type="number" step="0.1" min="0" max="10" @bind="TaperCmPerM" @bind:event="oninput" />
+                <span class="unit">cm/m</span>
+            </span>
+        </label>
+        <label>Längd
+            <span class="value-box sm">
+                <input type="number" step="0.1" min="0" max="30" @bind="LengthM" @bind:event="oninput" />
+                <span class="unit">m</span>
+            </span>
+        </label>
+    </div>
+
+    <div class="chips">
+        <div class="chip"><span>Grovända (rot)</span><strong>@Butt.ToString("0.#") cm</strong></div>
+        <div class="chip"><span>Mitt</span><strong>@Mid.ToString("0.#") cm</strong></div>
+        <div class="chip"><span>Topp</span><strong>@topCm.ToString("0.#") cm</strong></div>
+    </div>
+</div>
+
+@code {
+    private const string TopKey = "taperTopCm";
+    private const string RateKey = "taperRate";
+    private const string LenKey = "taperLenM";
+
+    private double topCm = 25;
+    private double taperCmPerM = Taper.TypicalCmPerMeter;
+    private double lengthM = 4;
+    private bool ready;
+
+    private double TopCm { get => topCm; set { topCm = value; Persist(TopKey, value); } }
+    private double TaperCmPerM { get => taperCmPerM; set { taperCmPerM = value; Persist(RateKey, value); } }
+    private double LengthM { get => lengthM; set { lengthM = value; Persist(LenKey, value); } }
+
+    private double Butt => Taper.ButtDiameterCm(topCm, taperCmPerM, Math.Max(0, lengthM));
+    private double Mid => Taper.MidDiameterCm(topCm, taperCmPerM, Math.Max(0, lengthM));
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        topCm = await Load(TopKey, topCm, 0, 150);
+        taperCmPerM = await Load(RateKey, taperCmPerM, 0, 10);
+        lengthM = await Load(LenKey, lengthM, 0, 30);
+        ready = true;
+        StateHasChanged();
+    }
+
+    private async Task<double> Load(string key, double fallback, double min, double max)
+    {
+        var s = await JS.InvokeAsync<string?>("appStore.get", key);
+        return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= min && v <= max
+            ? v : fallback;
+    }
+
+    private void Persist(string key, double value)
+    {
+        if (ready) _ = JS.InvokeVoidAsync("appStore.set", key, value.ToString(CultureInfo.InvariantCulture));
+    }
+}

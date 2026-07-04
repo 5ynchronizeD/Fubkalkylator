@@ -1,0 +1,113 @@
+@page "/order"
+@inject SawSettings Saw
+@inject IJSRuntime JS
+@using System.Globalization
+@using System.Text.Json
+
+<PageTitle>Orderlista</PageTitle>
+
+<div class="page-head">
+    <h1>Orderlista</h1>
+    <p>Lägg in dimensionerna du behöver — appen räknar fram minsta stock och antal stockar per rad.</p>
+</div>
+
+<KerfControl OnChanged="Recalculate" />
+
+<div class="card">
+    <table class="order-table">
+        <thead>
+            <tr>
+                <th>Tjocklek (mm)</th><th>Bredd (mm)</th><th>Antal</th>
+                <th>Minsta stock</th><th>Bitar/stock</th><th>Stockar</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (int i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                var line = plan is not null && i < plan.Lines.Count ? plan.Lines[i] : null;
+                <tr>
+                    <td><input type="number" step="1" min="1" max="300" @bind="row.ThickMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
+                    <td><input type="number" step="1" min="1" max="520" @bind="row.WidthMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
+                    <td><input type="number" step="1" min="0" max="9999" @bind="row.Qty" @bind:event="oninput" @bind:after="Recalculate" /></td>
+                    @if (line?.Achievable == true)
+                    {
+                        <td>@Cm(line.Target!.Postning.DiameterUnderBark) fub</td>
+                        <td>@line.PiecesPerLog st</td>
+                        <td><strong>@line.LogsNeeded st</strong></td>
+                    }
+                    else
+                    {
+                        <td colspan="3" class="na">går inte inom 20" stock</td>
+                    }
+                    <td><button class="linklike danger" @onclick="() => RemoveRow(i)">✕</button></td>
+                </tr>
+            }
+        </tbody>
+        @if (plan is not null && plan.Lines.Any(l => l.Achievable))
+        {
+            <tfoot>
+                <tr class="sum"><td colspan="5">Totalt antal stockar</td><td><strong>@plan.TotalLogs st</strong></td><td></td></tr>
+            </tfoot>
+        }
+    </table>
+
+    <div class="order-actions">
+        <button class="btn ghost sm" @onclick="AddRow">＋ Lägg till rad</button>
+    </div>
+    <p class="hint">Måtten anges i mm. Minsta stock anges som fub (under bark). En stock antas ge en postning.</p>
+</div>
+
+@code {
+    private sealed class Row
+    {
+        public double ThickMm { get; set; } = 45;
+        public double WidthMm { get; set; } = 95;
+        public int Qty { get; set; } = 10;
+    }
+
+    private List<Row> rows = new() { new Row() };
+    private OrderPlan? plan;
+    private bool ready;
+
+    protected override void OnInitialized() => Recalculate();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await JS.InvokeAsync<string?>("appStore.get", "orderRows");
+        if (!string.IsNullOrEmpty(s))
+        {
+            try
+            {
+                var loaded = JsonSerializer.Deserialize<List<Row>>(s);
+                if (loaded is { Count: > 0 }) { rows = loaded; Recalculate(); StateHasChanged(); }
+            }
+            catch { /* ignorera trasig cache */ }
+        }
+        ready = true;
+    }
+
+    private void AddRow() { rows.Add(new Row()); Recalculate(); }
+    private void RemoveRow(int i) { if (i >= 0 && i < rows.Count) rows.RemoveAt(i); if (rows.Count == 0) rows.Add(new Row()); Recalculate(); }
+
+    private void Recalculate()
+    {
+        var items = rows.Select(r => new OrderItem
+        {
+            ThicknessInches = Math.Max(0, r.ThickMm) / SawConstants.MmPerInch,
+            WidthInches = Math.Max(0, r.WidthMm) / SawConstants.MmPerInch,
+            Quantity = Math.Max(0, r.Qty),
+        });
+        plan = OrderPlanner.Plan(items, Saw.KerfInches);
+        Persist();
+    }
+
+    private void Persist()
+    {
+        if (ready)
+            _ = JS.InvokeVoidAsync("appStore.set", "orderRows", JsonSerializer.Serialize(rows));
+    }
+
+    private static string Cm(Measure m) => $"{m.Centimeters:0.#} cm ({m.Inches:0.##}\")";
+}

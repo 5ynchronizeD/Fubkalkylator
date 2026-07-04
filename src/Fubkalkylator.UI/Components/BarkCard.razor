@@ -1,0 +1,66 @@
+@inject IJSRuntime JS
+@using System.Globalization
+@using Fubkalkylator.Core
+
+<div class="card barkcard">
+    <div class="card-title">Barktjocklek per trädslag</div>
+    <p class="hint">Mätte du stocken <em>på bark</em>? Välj trädslag så räknar appen fram fub
+        (mer träffsäkert än den platta 5 %-schablonen ovan).</p>
+
+    <div class="shrink-inputs">
+        <label>Trädslag
+            <select class="fld" @bind="Species" @bind:event="onchange">
+                <option value="@WoodSpecies.Gran">Gran</option>
+                <option value="@WoodSpecies.Tall">Tall/Furu</option>
+                <option value="@WoodSpecies.Bjork">Björk</option>
+                <option value="@WoodSpecies.Ek">Ek</option>
+                <option value="@WoodSpecies.Okant">Okänt</option>
+            </select>
+        </label>
+        <label>Diameter på bark
+            <span class="value-box sm">
+                <input type="number" step="1" min="0" max="150" @bind="OnBarkCm" @bind:event="oninput" />
+                <span class="unit">cm</span>
+            </span>
+        </label>
+    </div>
+
+    <div class="chips">
+        <div class="chip"><span>Fub (under bark)</span><strong>@FubCm.ToString("0.#") cm</strong></div>
+        <div class="chip"><span>≈ i tum</span><strong>@FubInches.ToString("0.##")"</strong></div>
+        <div class="chip"><span>Barktjocklek</span><strong>@BarkMm.ToString("0") mm</strong></div>
+    </div>
+</div>
+
+@code {
+    private const string SpeciesKey = "barkSpecies";
+    private const string OnBarkKey = "barkOnBarkCm";
+
+    private WoodSpecies species = WoodSpecies.Gran;
+    private double onBarkCm = 30;
+    private bool ready;
+
+    private WoodSpecies Species { get => species; set { species = value; Persist(SpeciesKey, (int)value); } }
+    private double OnBarkCm { get => onBarkCm; set { onBarkCm = value; Persist(OnBarkKey, value); } }
+
+    private double OnBarkInches => Math.Max(0, onBarkCm) / SawConstants.CmPerInch;
+    private double FubInches => Bark.FubFromOnBark(species, OnBarkInches);
+    private double FubCm => FubInches * SawConstants.CmPerInch;
+    private double BarkMm => Bark.DoubleBarkThicknessInches(species, OnBarkInches) * SawConstants.MmPerInch;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var sp = await JS.InvokeAsync<string?>("appStore.get", SpeciesKey);
+        if (int.TryParse(sp, out var si) && Enum.IsDefined(typeof(WoodSpecies), si)) species = (WoodSpecies)si;
+        var s = await JS.InvokeAsync<string?>("appStore.get", OnBarkKey);
+        if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 150) onBarkCm = v;
+        ready = true;
+        StateHasChanged();
+    }
+
+    private void Persist(string key, double value)
+    {
+        if (ready) _ = JS.InvokeVoidAsync("appStore.set", key, value.ToString(CultureInfo.InvariantCulture));
+    }
+}

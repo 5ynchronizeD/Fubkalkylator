@@ -34,6 +34,18 @@ public sealed class SawJob
     public double BlockWidthInches { get; set; }
     public double BlockHeightInches { get; set; }
 
+    /// <summary>Stockens längd som volym/värde räknats på (tum). Null om okänt.</summary>
+    public double? StockLengthInches { get; set; }
+
+    /// <summary>Beräknad total virkesvolym vid sparandet (m³). Null om okänt.</summary>
+    public double? TimberVolumeM3 { get; set; }
+
+    /// <summary>Beräknat värde vid sparandet (kr). Null om okänt.</summary>
+    public double? EstimatedValue { get; set; }
+
+    /// <summary>Beräknat volymutbyte vid sparandet (%). Null om okänt.</summary>
+    public int? YieldPercent { get; set; }
+
     /// <summary>Kort sammanfattning av vad beräkningen förutsåg.</summary>
     public string CalculatedOutcome { get; set; } = "";
 
@@ -41,6 +53,10 @@ public sealed class SawJob
     public string Species { get; set; } = "";
     public string ActualOutcome { get; set; } = "";
     public string Note { get; set; } = "";
+
+    /// <summary>Valfritt foto (nedskalad JPEG som data-URL). Null om inget foto.</summary>
+    public string? PhotoDataUrl { get; set; }
+
     public DryingStatus Drying { get; set; }
     public DateTime? DryingStart { get; set; }
 

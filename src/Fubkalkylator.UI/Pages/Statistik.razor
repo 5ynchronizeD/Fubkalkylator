@@ -1,0 +1,110 @@
+@page "/statistik"
+@inject ISawJobStore Store
+@using System.Globalization
+
+<PageTitle>Statistik</PageTitle>
+
+<div class="page-head">
+    <h1>Statistik</h1>
+    <p>Översikt över dina sparade sågningar — volym, värde och utbyte.</p>
+</div>
+
+@if (jobs is null)
+{
+    <p class="hint">Laddar…</p>
+}
+else if (jobs.Count == 0)
+{
+    <div class="banner">Inga sparade sågningar än. Gör en beräkning och spara den i loggboken.</div>
+}
+else
+{
+    <div class="chips">
+        <div class="chip"><span>Sågningar</span><strong>@jobs.Count st</strong></div>
+        <div class="chip"><span>Total virkesvolym</span><strong>@Vol(totalVolume) m³</strong></div>
+        <div class="chip"><span>Uppskattat värde</span><strong>@Kr(totalValue)</strong></div>
+        <div class="chip"><span>Snittutbyte</span><strong>@(avgYield is int y ? $"{y} %" : "–")</strong></div>
+    </div>
+
+    <div class="chips">
+        <div class="chip"><span>Torkar</span><strong>@dryingCount st</strong></div>
+        <div class="chip"><span>Klar</span><strong>@doneCount st</strong></div>
+    </div>
+
+    @if (volumeJobs < jobs.Count)
+    {
+        <p class="hint">@volumeJobs av @jobs.Count sågningar har volym-/värdedata (äldre poster saknar det).</p>
+    }
+
+    <div class="card">
+        <div class="card-title">Per trädslag</div>
+        <table class="vv-table">
+            <thead>
+                <tr><td>Trädslag</td><td>Antal</td><td>Volym</td><td>Snittutbyte</td></tr>
+            </thead>
+            <tbody>
+                @foreach (var g in bySpecies)
+                {
+                    <tr>
+                        <td>@g.Species</td>
+                        <td>@g.Count st</td>
+                        <td>@Vol(g.Volume) m³</td>
+                        <td>@(g.AvgYield is int gy ? $"{gy} %" : "–")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<SawJob>? jobs;
+
+    private double totalVolume;
+    private double totalValue;
+    private int? avgYield;
+    private int volumeJobs;
+    private int dryingCount;
+    private int doneCount;
+    private List<SpeciesRow> bySpecies = new();
+
+    private sealed record SpeciesRow(string Species, int Count, double Volume, int? AvgYield);
+
+    protected override async Task OnInitializedAsync()
+    {
+        jobs = await Store.GetAllAsync();
+        Summarize();
+    }
+
+    private void Summarize()
+    {
+        if (jobs is null || jobs.Count == 0) return;
+
+        totalVolume = jobs.Where(j => j.TimberVolumeM3 is not null).Sum(j => j.TimberVolumeM3!.Value);
+        totalValue = jobs.Where(j => j.EstimatedValue is not null).Sum(j => j.EstimatedValue!.Value);
+        volumeJobs = jobs.Count(j => j.TimberVolumeM3 is not null);
+
+        var yields = jobs.Where(j => j.YieldPercent is not null).Select(j => j.YieldPercent!.Value).ToList();
+        avgYield = yields.Count > 0 ? (int)Math.Round(yields.Average()) : null;
+
+        dryingCount = jobs.Count(j => j.Drying == DryingStatus.Torkar);
+        doneCount = jobs.Count(j => j.Drying == DryingStatus.Klar);
+
+        bySpecies = jobs
+            .GroupBy(j => string.IsNullOrWhiteSpace(j.Species) ? "Okänt trädslag" : j.Species.Trim())
+            .Select(g =>
+            {
+                var gy = g.Where(j => j.YieldPercent is not null).Select(j => j.YieldPercent!.Value).ToList();
+                return new SpeciesRow(
+                    g.Key,
+                    g.Count(),
+                    g.Where(j => j.TimberVolumeM3 is not null).Sum(j => j.TimberVolumeM3!.Value),
+                    gy.Count > 0 ? (int)Math.Round(gy.Average()) : null);
+            })
+            .OrderByDescending(r => r.Count)
+            .ToList();
+    }
+
+    private static string Vol(double m3) => m3.ToString("0.000", CultureInfo.InvariantCulture);
+    private static string Kr(double kr) => $"{kr.ToString("#,0", CultureInfo.GetCultureInfo("sv-SE"))} kr";
+}

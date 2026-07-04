@@ -1,0 +1,54 @@
+# CLAUDE.md — Fubkalkylator
+
+Sågverkskalkylator (postningsoptimering) portad från kalkylbladet "PostningsMax Beta".
+Delad `Core` + `UI`, körs som Blazor WASM-webbapp och .NET MAUI Android-app.
+Se `README.md` för projektstruktur och byggkommandon.
+
+## Release-rutin vid nya versioner
+
+När en ny version görs (efter att `<Version>` i `Directory.Build.props` bumpats):
+
+1. **Pusha en version till GitHub.** Commita ändringarna och pusha till
+   `origin` (https://github.com/5ynchronizeD/Fubkalkylator.git), gärna med en
+   version-tagg:
+   ```bash
+   git commit -am "vX.Y.Z: <sammanfattning>"
+   git tag vX.Y.Z
+   git push origin main --tags
+   ```
+   > Pushen kan behöva köras interaktivt av användaren (`!git push ...`) om
+   > GitHub-inloggning krävs.
+
+2. **Bygg och kopiera APK:n till Google Drive.** Bygg Android-appen i Release
+   och kopiera den signerade APK:n till `D:\Min enhet` (Google Drive på datorn):
+   ```bash
+   dotnet build src/Fubkalkylator.App/Fubkalkylator.App.csproj -f net10.0-android -c Release \
+     -p:JavaSdkDirectory="C:\Program Files\Android\Android Studio\jbr" \
+     -p:AndroidSdkDirectory="%LOCALAPPDATA%\Android\Sdk" \
+     -p:AcceptAndroidSDKLicenses=True
+   ```
+   Kopiera sedan
+   `src/Fubkalkylator.App/bin/Release/net10.0-android/se.fubkalkylator.app-Signed.apk`
+   till `D:\Min enhet\`. Själva projektet bor kvar på datorn — bara APK:n till Drive.
+
+## Versionshantering
+
+- En delad version bor i `Directory.Build.props` (`<Version>`). Bumpa där —
+  då följer både UI:ts footer och Android-appens `ApplicationDisplayVersion` med.
+
+## Roadmap (status)
+
+- ✅ **Etapp 1 – Volym & värde:** `PostningEconomy` + `VolumeValueCard` (stocklängd, prislista → m³, board feet, utbyte %, kr). Sparas i loggboken.
+- ✅ **Etapp 2 – Statistik/översikt:** `Statistik.razor` (volym, värde, snittutbyte, torkstatus, per trädslag).
+- ✅ **Etapp 3 – Torkning:** `Shrinkage` + `ShrinkageCard` (krympmån) och `DryingForecast` + torkprognos i loggboken (målfukthalt → klar‑dag).
+- ✅ **Etapp 4 – Småfixar:** `Bark` + `BarkCard`, sök/filter i loggboken, CSV‑export + JSON‑säkerhetskopia, foto per loggpost.
+  - Auto‑sync till Google Drive levererades som **manuell JSON‑säkerhetskopia** (knapp i loggboken). Äkta auto‑sync från telefonen kräver Google Drive‑API/OAuth — separat, större jobb.
+  - PDF‑export utelämnad (CSV täcker behovet); lägg till vid behov.
+- ✅ **Etapp 5 – Avancerat:** `OrderPlanner` + `Order.razor` (orderlista → minsta stock/antal stockar) och `Taper` + `TaperCard` (avsmalning).
+
+> Jämför‑två‑postningar valdes bort medvetet: med ett enda sågverk och fast sågspår finns inget att jämföra mot.
+
+## Bra att veta
+
+- All beräkning sker internt i tum; mm/cm visas parallellt. Sågspår är en variabel.
+- Kör tester med `dotnet test` innan release.

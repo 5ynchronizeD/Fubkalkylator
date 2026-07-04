@@ -1,0 +1,135 @@
+@inject SawSettings Saw
+@inject IJSRuntime JS
+@using System.Globalization
+@using Fubkalkylator.Core
+
+<div class="card vvcard">
+    <div class="card-title">Volym &amp; värde</div>
+
+    <div class="vv-length">
+        <label for="len">Stocklängd</label>
+        <div class="value-box sm">
+            <input id="len" type="number" step="0.1" min="0" max="30"
+                   @bind="LengthMeters" @bind:event="oninput" />
+            <span class="unit">m</span>
+        </div>
+    </div>
+
+    @if (economy is not null)
+    {
+        <div class="chips">
+            <div class="chip"><span>Virkesvolym</span><strong>@Vol(economy.TimberVolumeM3) m³</strong></div>
+            <div class="chip"><span>Utbyte</span><strong>@economy.YieldPercent %</strong></div>
+            <div class="chip"><span>Värde</span><strong>@Kr(economy.TotalValue)</strong></div>
+        </div>
+
+        <details class="vv-details">
+            <summary>Priser &amp; fördelning</summary>
+
+            <div class="vv-prices">
+                <label>Block/plank
+                    <span class="value-box sm">
+                        <input type="number" step="50" min="0" @bind="BlockPrice" @bind:event="oninput" />
+                        <span class="unit">kr/m³</span>
+                    </span>
+                </label>
+                <label>Biprodukter
+                    <span class="value-box sm">
+                        <input type="number" step="50" min="0" @bind="ByproductPrice" @bind:event="oninput" />
+                        <span class="unit">kr/m³</span>
+                    </span>
+                </label>
+            </div>
+
+            <table class="vv-table">
+                <tbody>
+                    <tr><td>Block/plank</td><td>@Vol(economy.BlockVolumeM3) m³</td><td>@Kr(economy.BlockValue)</td></tr>
+                    <tr><td>Biprodukter</td><td>@Vol(economy.ByproductVolumeM3) m³</td><td>@Kr(economy.ByproductValue)</td></tr>
+                    <tr class="sum"><td>Totalt</td><td>@Vol(economy.TimberVolumeM3) m³</td><td>@Kr(economy.TotalValue)</td></tr>
+                    <tr><td>Board feet</td><td colspan="2">@economy.BoardFeet.ToString("0.#") bf</td></tr>
+                    <tr><td>Stockvolym</td><td colspan="2">@Vol(economy.LogVolumeM3) m³</td></tr>
+                </tbody>
+            </table>
+            <p class="hint">Ungefärligt (areor approximeras) — för planering, inte fakturering.</p>
+        </details>
+    }
+</div>
+
+@code {
+    /// <summary>Postningen att räkna volym/värde på.</summary>
+    [Parameter] public PostningResult? Result { get; set; }
+
+    /// <summary>Anropas när volym/värde räknats om (för att spara i loggboken m.m.).</summary>
+    [Parameter] public EventCallback<PostningEconomyResult?> OnEconomyChanged { get; set; }
+
+    private const string LenKey = "econLenM";
+    private const string BlockKey = "econPriceBlock";
+    private const string ByKey = "econPriceBy";
+
+    private double lengthMeters = 4.0;
+    private bool ready;
+    private PostningEconomyResult? economy;
+
+    private double LengthMeters
+    {
+        get => lengthMeters;
+        set { lengthMeters = value; PersistLength(); Recompute(); }
+    }
+
+    private double BlockPrice
+    {
+        get => Saw.BlockPricePerM3;
+        set { Saw.BlockPricePerM3 = value; Persist(BlockKey, value); Recompute(); }
+    }
+
+    private double ByproductPrice
+    {
+        get => Saw.ByproductPricePerM3;
+        set { Saw.ByproductPricePerM3 = value; Persist(ByKey, value); Recompute(); }
+    }
+
+    protected override void OnParametersSet() => Recompute();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        lengthMeters = await Load(LenKey, lengthMeters, 0, 30);
+        Saw.BlockPricePerM3 = await Load(BlockKey, Saw.BlockPricePerM3, 0, 1_000_000);
+        Saw.ByproductPricePerM3 = await Load(ByKey, Saw.ByproductPricePerM3, 0, 1_000_000);
+        ready = true;
+        Recompute();
+        StateHasChanged();
+    }
+
+    private void Recompute()
+    {
+        if (Result is null)
+        {
+            economy = null;
+        }
+        else
+        {
+            double lengthInches = Math.Max(0, lengthMeters) / SawConstants.MetersPerInch;
+            economy = PostningEconomy.Compute(Result, lengthInches, Saw.Prices);
+        }
+        _ = OnEconomyChanged.InvokeAsync(economy);
+    }
+
+    private async Task<double> Load(string key, double fallback, double min, double max)
+    {
+        var s = await JS.InvokeAsync<string?>("appStore.get", key);
+        return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= min && v <= max
+            ? v : fallback;
+    }
+
+    private void PersistLength() => Persist(LenKey, lengthMeters);
+
+    private void Persist(string key, double value)
+    {
+        if (ready)
+            _ = JS.InvokeVoidAsync("appStore.set", key, value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private static string Vol(double m3) => m3.ToString("0.000", CultureInfo.InvariantCulture);
+    private static string Kr(double kr) => $"{kr.ToString("#,0", CultureInfo.GetCultureInfo("sv-SE"))} kr";
+}

@@ -81,8 +81,12 @@
                 </table>
             </details>
 
+            <VolumeValueCard Result="result" OnEconomyChanged="e => economy = e" />
+
             <SaveJobForm StockFub="result.DiameterUnderBark.Inches" Kerf="result.KerfInches"
                          BlockWidth="result.BlockWidth.Inches" BlockHeight="result.BlockHeight.Inches"
+                         StockLength="economy?.LengthInches" TimberVolumeM3="economy?.TimberVolumeM3"
+                         EstimatedValue="economy?.TotalValue" YieldPercent="economy?.YieldPercent"
                          CalculatedOutcome="@Outcome(result)" />
         </div>
     </div>
@@ -91,6 +95,7 @@
 @code {
     private double fub = 9.75;
     private PostningResult? result;
+    private PostningEconomyResult? economy;
     private string? error;
 
     private bool HasError => error is not null;

@@ -1,0 +1,82 @@
+@inject IJSRuntime JS
+@using System.Globalization
+@using Fubkalkylator.Core
+
+<div class="card shrinkcard">
+    <div class="card-title">Krympmån vid torkning</div>
+    <p class="hint">Virke krymper när det torkar. Ange önskat <em>torrt</em> mått så räknar
+        appen fram det <em>råa</em> sågmått du behöver.</p>
+
+    <div class="shrink-inputs">
+        <label>Trädslag
+            <select class="fld" @bind="Species" @bind:event="onchange">
+                <option value="@WoodSpecies.Gran">Gran</option>
+                <option value="@WoodSpecies.Tall">Tall/Furu</option>
+                <option value="@WoodSpecies.Bjork">Björk</option>
+                <option value="@WoodSpecies.Ek">Ek</option>
+                <option value="@WoodSpecies.Okant">Okänt</option>
+            </select>
+        </label>
+        <label>Torrt mått
+            <span class="value-box sm">
+                <input type="number" step="1" min="0" max="500" @bind="DryMm" @bind:event="oninput" />
+                <span class="unit">mm</span>
+            </span>
+        </label>
+        <label>Målfukthalt
+            <span class="value-box sm">
+                <input type="number" step="1" min="0" max="30" @bind="TargetMc" @bind:event="oninput" />
+                <span class="unit">%</span>
+            </span>
+        </label>
+    </div>
+
+    <div class="chips">
+        <div class="chip"><span>Såga rått</span><strong>@GreenMm.ToString("0.#") mm</strong></div>
+        <div class="chip"><span>Krympmån</span><strong>+@AllowanceMm.ToString("0.#") mm</strong></div>
+        <div class="chip"><span>Krympning</span><strong>@FractionPct.ToString("0.0") %</strong></div>
+    </div>
+</div>
+
+@code {
+    private const string SpeciesKey = "shrinkSpecies";
+    private const string DryKey = "shrinkDryMm";
+    private const string McKey = "shrinkMc";
+
+    private WoodSpecies species = WoodSpecies.Gran;
+    private double dryMm = 45;
+    private double targetMc = 15;
+    private bool ready;
+
+    private WoodSpecies Species { get => species; set { species = value; Persist(SpeciesKey, (int)value); } }
+    private double DryMm { get => dryMm; set { dryMm = value; Persist(DryKey, value); } }
+    private double TargetMc { get => targetMc; set { targetMc = value; Persist(McKey, value); } }
+
+    private double DryInches => Math.Max(0, dryMm) / SawConstants.MmPerInch;
+    private double GreenMm => Shrinkage.GreenDimensionInches(DryInches, species, targetMc) * SawConstants.MmPerInch;
+    private double AllowanceMm => GreenMm - Math.Max(0, dryMm);
+    private double FractionPct => Shrinkage.Fraction(species, targetMc) * 100.0;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var sp = await JS.InvokeAsync<string?>("appStore.get", SpeciesKey);
+        if (int.TryParse(sp, out var si) && Enum.IsDefined(typeof(WoodSpecies), si)) species = (WoodSpecies)si;
+        dryMm = await Load(DryKey, dryMm, 0, 500);
+        targetMc = await Load(McKey, targetMc, 0, 30);
+        ready = true;
+        StateHasChanged();
+    }
+
+    private async Task<double> Load(string key, double fallback, double min, double max)
+    {
+        var s = await JS.InvokeAsync<string?>("appStore.get", key);
+        return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= min && v <= max
+            ? v : fallback;
+    }
+
+    private void Persist(string key, double value)
+    {
+        if (ready) _ = JS.InvokeVoidAsync("appStore.set", key, value.ToString(CultureInfo.InvariantCulture));
+    }
+}
