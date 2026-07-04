@@ -1,51 +1,36 @@
+@inject SawSettings Saw
 @using Fubkalkylator.Core
 
 <details class="card sawschedule">
-    <summary>Sågschema — snittordning &amp; mått från centrum</summary>
+    <summary>Sågschema — snittordning &amp; mått</summary>
 
-    <p class="hint">Blockmetod (Logosol): såga de fyra sidorna med vändning emellan,
-        dela sedan blocket. Måtten är avstånd från kärnan/centrum till varje snitt.</p>
+    <p class="hint">Följer vald sågordning (ändras under "Stega igenom snitten").
+        Första snittet på varje sida är från centrum, resten "flytta X mm" från förra snittet.</p>
 
-    @foreach (var group in Grouped)
-    {
-        <div class="cut-phase">@PhaseName(group.Key)</div>
-        <ol class="cut-list">
-            @foreach (var cut in group)
-            {
-                <li>
-                    <span class="cut-nr">@cut.Number</span>
-                    <span class="cut-label">@cut.Label</span>
-                    @if (cut.StepFromPreviousInches is double step)
-                    {
-                        <span class="cut-mm move">↕ flytta @Mm(step) mm</span>
-                    }
-                    else
-                    {
-                        <span class="cut-mm">@Mm(cut.DistanceFromCenterInches) mm@(Suffix(cut))</span>
-                    }
-                </li>
-            }
-        </ol>
-    }
+    <ol class="cut-list">
+        @foreach (var cut in Cuts)
+        {
+            <li>
+                <span class="cut-nr">@cut.Number</span>
+                <span class="cut-label">@cut.Label</span>
+                @if (cut.StepFromPreviousInches is double s)
+                {
+                    <span class="cut-mm move">↕ flytta @Mm(s) mm</span>
+                }
+                else
+                {
+                    <span class="cut-mm">@Mm(cut.DistanceFromCenterInches) mm@(Suffix(cut))</span>
+                }
+            </li>
+        }
+    </ol>
 </details>
 
 @code {
     [Parameter] public PostningResult? Result { get; set; }
 
-    private IEnumerable<IGrouping<CutPhase, SawCut>> Grouped =>
-        Result is null
-            ? Enumerable.Empty<IGrouping<CutPhase, SawCut>>()
-            : SawSequence.Compute(Result).GroupBy(c => c.Phase);
-
-    private static string PhaseName(CutPhase p) => p switch
-    {
-        CutPhase.SideFace1 => "Sidobrädor – sida 1",
-        CutPhase.SideFace2 => "Sidobrädor – sida 2 (vänd 180°)",
-        CutPhase.EndFace1 => "Ändbrädor – ände 1 (vrid 90°)",
-        CutPhase.EndFace2 => "Ändbrädor – ände 2 (vänd 180°)",
-        CutPhase.BlockSplit => "Delning av blocket",
-        _ => "",
-    };
+    private IReadOnlyList<SawCut> Cuts =>
+        Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod);
 
     private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0");
     private static string Suffix(SawCut c) => c.AboveCenter is bool a ? (a ? " ovan centrum" : " under centrum") : " från centrum";

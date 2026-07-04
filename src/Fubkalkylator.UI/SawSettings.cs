@@ -19,6 +19,9 @@ public class SawSettings
     /// <summary>Målfukthalt (%) som torkprognosen räknar mot.</summary>
     public double TargetMoisturePercent { get; set; } = 15;
 
+    /// <summary>Vald sågmetod (snittordning) för visualiseringen.</summary>
+    public SawMethod SawMethod { get; set; } = SawMethod.Block180;
+
     /// <summary>Aktuell prislista utifrån inställningarna.</summary>
     public PriceList Prices => new()
     {

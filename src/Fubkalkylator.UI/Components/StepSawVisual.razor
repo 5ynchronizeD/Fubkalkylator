@@ -1,3 +1,6 @@
+@inject SawSettings Saw
+@inject IJSRuntime JS
+@using System.Globalization
 @using Fubkalkylator.Core
 
 <details class="card stepsaw">
@@ -5,9 +8,19 @@
 
     @if (Result is not null)
     {
+        <div class="stepsaw-method">
+            <label>Sågordning</label>
+            <div class="seg small">
+                <button type="button" class="@(Saw.SawMethod == SawMethod.Block180 ? "on" : null)"
+                        @onclick="() => SetMethod(SawMethod.Block180)">Vänd 180° (block)</button>
+                <button type="button" class="@(Saw.SawMethod == SawMethod.Varv90 ? "on" : null)"
+                        @onclick="() => SetMethod(SawMethod.Varv90)">Vänd 90° (varv)</button>
+            </div>
+        </div>
+
         <div class="stepsaw-stage">
-            <div class="stepsaw-rot" style="transform: rotate(@(Angle)deg);">
-                @((MarkupString)CrossSectionSvg.RenderStepped(Result, step))
+            <div class="stepsaw-rot" style="transform: rotate(@Deg(Angle)deg);">
+                @((MarkupString)CrossSectionSvg.RenderStepped(Result, step, Saw.SawMethod, revealCut))
             </div>
         </div>
 
@@ -20,7 +33,7 @@
             else
             {
                 var cut = cuts[step - 1];
-                <strong>@step/@cuts.Count · @PhaseName(cut.Phase)</strong>
+                <strong>@step/@cuts.Count · @FaceName(cut.Face)</strong>
                 <span class="cut-label">@cut.Label</span>
                 @if (cut.StepFromPreviousInches is double s)
                 {
@@ -38,8 +51,8 @@
             <button class="btn" disabled="@(step >= cuts.Count)" @onclick="Next">Nästa ›</button>
             <button class="linklike" disabled="@(step == 0)" @onclick="Reset">Återställ</button>
         </div>
-        <p class="hint">Bilden roterar så att sidan som sågas hamnar uppåt (sågen snittar alltid uppåt).
-            Bortkapade bitar tonas ned; röd streckad linje är det aktuella snittet.</p>
+        <p class="hint">Bilden roterar så att sidan som sågas hamnar uppåt (sågen snittar alltid uppåt) —
+            snittlinjen och måttet visas när stocken vänts rätt. Bortsågat följer den nya formen.</p>
     }
 </details>
 
@@ -47,38 +60,61 @@
     [Parameter] public PostningResult? Result { get; set; }
 
     private int step;
+    private bool revealCut = true;
+    private int revealToken;
     private IReadOnlyList<SawCut> cuts = Array.Empty<SawCut>();
 
     protected override void OnParametersSet()
     {
-        cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result);
-        if (step > cuts.Count) step = cuts.Count;   // stocken ändrades → håll steget giltigt
+        cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod);
+        if (step > cuts.Count) step = cuts.Count;
     }
 
-    private void Next() { if (step < cuts.Count) step++; }
-    private void Prev() { if (step > 0) step--; }
-    private void Reset() => step = 0;
-
-    // Rotera så att den sågade sidan är uppåt.
-    private int Angle => step == 0 ? 0 : cuts[step - 1].Phase switch
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        CutPhase.SideFace1 => -90,
-        CutPhase.SideFace2 => 90,
-        CutPhase.EndFace1 => 0,
-        CutPhase.EndFace2 => 180,
-        _ => 0,   // delning: block stående, snitt uppifrån
+        if (!firstRender) return;
+        var s = await JS.InvokeAsync<string?>("appStore.get", "sawMethod");
+        if (int.TryParse(s, out var m) && Enum.IsDefined(typeof(SawMethod), m) && (SawMethod)m != Saw.SawMethod)
+        {
+            Saw.SawMethod = (SawMethod)m;
+            cuts = SawSequence.Compute(Result!, Saw.SawMethod);
+            StateHasChanged();
+        }
+    }
+
+    private double Angle => step == 0 ? 0 : cuts[step - 1].RotationDegrees;
+
+    private async Task Next() { if (step < cuts.Count) { step++; await RotateThenReveal(); } }
+    private async Task Prev() { if (step > 0) { step--; await RotateThenReveal(); } }
+    private void Reset() { step = 0; revealCut = true; }
+
+    private void SetMethod(SawMethod m)
+    {
+        Saw.SawMethod = m;
+        _ = JS.InvokeVoidAsync("appStore.set", "sawMethod", ((int)m).ToString(CultureInfo.InvariantCulture));
+        cuts = SawSequence.Compute(Result!, m);
+        step = 0;
+        revealCut = true;
+    }
+
+    // Rotera först (dölj snittet), visa snittlinjen efter att rotationen animerat klart.
+    private async Task RotateThenReveal()
+    {
+        int token = ++revealToken;
+        revealCut = false;
+        StateHasChanged();
+        await Task.Delay(560);
+        if (token == revealToken) { revealCut = true; StateHasChanged(); }
+    }
+
+    private static string FaceName(SawFace f) => f switch
+    {
+        SawFace.Top or SawFace.Bottom => "Ände (topp/botten)",
+        SawFace.Left or SawFace.Right => "Sida",
+        _ => "Delning av blocket",
     };
 
-    private static string PhaseName(CutPhase p) => p switch
-    {
-        CutPhase.SideFace1 => "Sidobrädor sida 1",
-        CutPhase.SideFace2 => "Sidobrädor sida 2",
-        CutPhase.EndFace1 => "Ändbrädor ände 1",
-        CutPhase.EndFace2 => "Ändbrädor ände 2",
-        CutPhase.BlockSplit => "Delning av blocket",
-        _ => "",
-    };
-
+    private static string Deg(double v) => v.ToString("0.#", CultureInfo.InvariantCulture);
     private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0");
     private static string Suffix(SawCut c) => c.AboveCenter is bool a ? (a ? " ovan centrum" : " under centrum") : " från centrum";
 }

@@ -92,12 +92,12 @@ public static class CrossSectionSvg
     }
 
     /// <summary>
-    /// Renderar stockänden för ett visst steg i sågordningen: bitar som redan
-    /// kapats bort tonas ned, och det aktuella snittet markeras med en linje.
+    /// Renderar stockänden för ett visst steg i sågordningen (för vald metod):
+    /// omkretsen klipps till den nuvarande formen (platt där man sågat), och det
+    /// aktuella snittet markeras med linje + mått när <paramref name="showCutLine"/>.
     /// <paramref name="completedCuts"/> = antal gjorda snitt (0 = hel stock).
-    /// Rotationen (så att rätt sida hamnar uppåt) sköts av anroparen.
     /// </summary>
-    public static string RenderStepped(PostningResult r, int completedCuts)
+    public static string RenderStepped(PostningResult r, int completedCuts, SawMethod method, bool showCutLine)
     {
         double B = r.BlockWidth.Inches, H = r.BlockHeight.Inches;
         double bh = B / 2, hh = H / 2;
@@ -107,19 +107,22 @@ public static class CrossSectionSvg
 
         var side = PostningLayout.SidePiecesPerSide(r);
         var end = PostningLayout.EndPiecesPerSide(r);
+        var cuts = SawSequence.Compute(r, method);
 
-        // Tilldela snittnummer per bit, i exakt samma ordning som SawSequence.
-        int rightStart = 1;
-        int leftStart = rightStart + 1 + side.Count;
-        int topStart = leftStart + 1 + side.Count;
-        int botStart = topStart + 1 + end.Count;
-
-        // Nuvarande form: en platt sida uppstår där man redan sågat.
+        // Nuvarande platta yta per sida = innersta redan gjorda snittet på den sidan.
+        double? FlatOf(SawFace f)
+        {
+            double? min = null;
+            for (int i = 0; i < completedCuts && i < cuts.Count; i++)
+                if (cuts[i].Face == f && (min is null || cuts[i].DistanceFromCenterInches < min))
+                    min = cuts[i].DistanceFromCenterInches;
+            return min;
+        }
         double big = barkR + pad; // ingen platt sida än
-        double rx = FaceFlat(side, bh, rightStart, completedCuts) ?? big;
-        double lx = FaceFlat(side, bh, leftStart, completedCuts) ?? big;
-        double ty = FaceFlat(end, hh, topStart, completedCuts) ?? big;
-        double by = FaceFlat(end, hh, botStart, completedCuts) ?? big;
+        double rx = FlatOf(SawFace.Right) ?? big;
+        double lx = FlatOf(SawFace.Left) ?? big;
+        double ty = FlatOf(SawFace.Top) ?? big;
+        double by = FlatOf(SawFace.Bottom) ?? big;
 
         var sb = new StringBuilder();
         sb.Append(CultureInfo.InvariantCulture, $"<svg class=\"log-svg\" viewBox=\"0 0 {F(vb)} {F(vb)}\" role=\"img\" aria-label=\"Stockände, steg {completedCuts}\">");
@@ -151,11 +154,11 @@ public static class CrossSectionSvg
         }
         sb.Append("</g></g>"); // klart: virke + formklipp
 
-        // Aktuellt snitt: markeringslinje + mått i bilden.
-        if (completedCuts >= 1)
+        // Aktuellt snitt: markeringslinje + mått i bilden (efter att bilden roterat).
+        if (showCutLine && completedCuts >= 1 && completedCuts <= cuts.Count)
         {
-            AppendCutLine(sb, r, completedCuts, woodR);
-            AppendDimension(sb, r, completedCuts, woodR);
+            AppendCutLine(sb, cuts[completedCuts - 1], woodR);
+            AppendDimension(sb, cuts, completedCuts, woodR);
         }
 
         sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(barkR * 0.02 + 0.05)}\" fill=\"{Stroke}\"/>");
@@ -163,76 +166,55 @@ public static class CrossSectionSvg
         return sb.ToString();
     }
 
-    // Avstånd från centrum till en sidas nuvarande platta yta (null = sidan inte sågad än).
-    private static double? FaceFlat(IReadOnlyList<Piece> pieces, double blockHalf, int startNum, int completedCuts)
+    // Signerad koordinat längs snittets axel (från centrum).
+    private static double Coord(SawCut c) => c.Face switch
     {
-        if (completedCuts < startNum) return null;
-        if (pieces.Count == 0) return blockHalf;
-        double flat = blockHalf + pieces[^1].End; // efter bak-snittet
-        int num = startNum;
-        for (int i = pieces.Count - 1; i >= 0; i--)
-        {
-            num++;
-            if (completedCuts >= num) flat = blockHalf + pieces[i].Start;
-        }
-        return flat;
-    }
+        SawFace.Top => -c.DistanceFromCenterInches,
+        SawFace.Bottom => c.DistanceFromCenterInches,
+        SawFace.Left => -c.DistanceFromCenterInches,
+        SawFace.Right => c.DistanceFromCenterInches,
+        _ => c.AboveCenter == true ? -c.DistanceFromCenterInches : c.DistanceFromCenterInches,
+    };
 
-    // Ritar en röd markeringslinje för det aktuella snittet (i oroterade koordinater).
-    private static void AppendCutLine(StringBuilder sb, PostningResult r, int completedCuts, double woodR)
+    // Snittet ritas som en horisontell linje (Top/Bottom/Block) eller vertikal (Left/Right).
+    private static bool HorizontalCut(SawFace f) => f is SawFace.Top or SawFace.Bottom or SawFace.Block;
+
+    private static void AppendCutLine(StringBuilder sb, SawCut cut, double woodR)
     {
-        var cuts = SawSequence.Compute(r);
-        if (completedCuts > cuts.Count) return;
-        var cut = cuts[completedCuts - 1];
-        double d = cut.DistanceFromCenterInches;
+        double d = Coord(cut);
         double L = woodR * 1.05;
-        (double x1, double y1, double x2, double y2) = cut.Phase switch
-        {
-            CutPhase.SideFace1 => (d, -L, d, L),
-            CutPhase.SideFace2 => (-d, -L, -d, L),
-            CutPhase.EndFace1 => (-L, -d, L, -d),
-            CutPhase.EndFace2 => (-L, d, L, d),
-            _ => (-L, (cut.AboveCenter == true ? -d : d), L, (cut.AboveCenter == true ? -d : d)),
-        };
+        (double x1, double y1, double x2, double y2) = HorizontalCut(cut.Face)
+            ? (-L, d, L, d)
+            : (d, -L, d, L);
         sb.Append(CultureInfo.InvariantCulture,
             $"<line x1=\"{F(x1)}\" y1=\"{F(y1)}\" x2=\"{F(x2)}\" y2=\"{F(y2)}\" stroke=\"#d64545\" stroke-width=\"2.5\" stroke-dasharray=\"6 3\" vector-effect=\"non-scaling-stroke\"/>");
     }
 
-    // Ritar måttet i bilden: från referenspunkt (centrum, eller föregående snitt) till snittlinjen.
-    private static void AppendDimension(StringBuilder sb, PostningResult r, int completedCuts, double woodR)
+    // Ritar måttet i bilden: från referenspunkt (centrum, eller förra snittet på samma sida) till snittlinjen.
+    private static void AppendDimension(StringBuilder sb, IReadOnlyList<SawCut> cuts, int completedCuts, double woodR)
     {
-        var cuts = SawSequence.Compute(r);
-        if (completedCuts > cuts.Count) return;
         var cut = cuts[completedCuts - 1];
-        var prev = completedCuts >= 2 && cuts[completedCuts - 2].Phase == cut.Phase ? cuts[completedCuts - 2] : null;
-
-        static double Coord(SawCut c) => c.Phase switch
-        {
-            CutPhase.SideFace1 => c.DistanceFromCenterInches,
-            CutPhase.SideFace2 => -c.DistanceFromCenterInches,
-            CutPhase.EndFace1 => -c.DistanceFromCenterInches,
-            CutPhase.EndFace2 => c.DistanceFromCenterInches,
-            _ => c.AboveCenter == true ? -c.DistanceFromCenterInches : c.DistanceFromCenterInches,
-        };
+        SawCut? prev = null;
+        for (int i = completedCuts - 2; i >= 0; i--)
+            if (cuts[i].Face == cut.Face) { prev = cuts[i]; break; }
 
         double cutCoord = Coord(cut);
-        double refCoord = prev is null ? 0 : Coord(prev);
+        double refCoord = cut.StepFromPreviousInches is null || prev is null ? 0 : Coord(prev);
         double valueMm = (cut.StepFromPreviousInches ?? cut.DistanceFromCenterInches) * SawConstants.MmPerInch;
         string txt = valueMm.ToString("0", CultureInfo.InvariantCulture) + " mm";
         double fs = woodR * 0.17;
-        bool horizontalCut = cut.Phase is CutPhase.EndFace1 or CutPhase.EndFace2 or CutPhase.BlockSplit;
 
-        if (!horizontalCut)
-        {
-            double y = -woodR * 0.18;
-            DimLine(sb, refCoord, y, cutCoord, y);
-            DimText(sb, (refCoord + cutCoord) / 2.0, y - fs * 0.35, txt, fs, "middle");
-        }
-        else
+        if (HorizontalCut(cut.Face))
         {
             double x = woodR * 0.18;
             DimLine(sb, x, refCoord, x, cutCoord);
             DimText(sb, x + fs * 0.4, (refCoord + cutCoord) / 2.0 + fs * 0.35, txt, fs, "start");
+        }
+        else
+        {
+            double y = -woodR * 0.18;
+            DimLine(sb, refCoord, y, cutCoord, y);
+            DimText(sb, (refCoord + cutCoord) / 2.0, y - fs * 0.35, txt, fs, "middle");
         }
     }
 
