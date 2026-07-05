@@ -45,72 +45,91 @@ public static class SawSequence
         double bh = r.BlockWidth.Inches / 2.0, hh = r.BlockHeight.Inches / 2.0;
         var side = PostningLayout.SidePiecesPerSide(r);
         var end = PostningLayout.EndPiecesPerSide(r);
+        var block = blockPieces ?? PostningLayout.BlockPieces(r);
 
-        var planes = new Dictionary<SawFace, List<(string Label, double Dist)>>
-        {
-            [SawFace.Top] = FacePlanes(end, hh, "Ändbräda"),
-            [SawFace.Bottom] = FacePlanes(end, hh, "Ändbräda"),
-            [SawFace.Left] = FacePlanes(side, bh, "Sidobräda"),
-            [SawFace.Right] = FacePlanes(side, bh, "Sidobräda"),
-        };
-
-        // Blocksågning: motstående sidor först (180°-vändning) — de två första
-        //   sidorna tar ut blockets bredd, sedan 90° till ändarna, sedan delning.
-        // Varvsågning: ett snitt, vänd 90°, runt stocken.
-        var order = method switch
-        {
-            SawMethod.Varv90 => RoundRobin(planes, new[] { SawFace.Top, SawFace.Left, SawFace.Bottom, SawFace.Right }),
-            _ => Sequential(planes, new[] { SawFace.Left, SawFace.Right, SawFace.Top, SawFace.Bottom }),
-        };
+        // Blocksågning: ta bredd-sidorna (Left→Right = 180°), vänd sedan 90° och
+        //   skiva HELA blocket uppifrån och ned i en orientering — ändbräder, reglar
+        //   och botten tas från samma sida utan att vända (man vänder max ~4 ggr).
+        // Varvsågning: gå runt stocken (90° per sida) och ta alla fyra sidor, dela
+        //   sedan blocket i reglar.
+        var faces = method == SawMethod.Varv90
+            ? new[] { SawFace.Top, SawFace.Left, SawFace.Bottom, SawFace.Right }
+            : new[] { SawFace.Left, SawFace.Right };
 
         var cuts = new List<SawCut>();
         int n = 1;
-        var lastDist = new Dictionary<SawFace, double>();
-        double prevAngle = FaceAngle(order.Count > 0 ? order[0].Item1 : SawFace.Top);
+        double prevAngle = FaceAngle(faces[0]);
         double rot = prevAngle;   // första snittets sida vänds uppåt
 
-        foreach (var (face, idx) in order)
+        foreach (var face in faces)
         {
-            var (label, dist) = planes[face][idx];
-            double? step = lastDist.TryGetValue(face, out var l) ? Math.Abs(l - dist) : null;
-            lastDist[face] = dist;
+            bool isSide = face is SawFace.Left or SawFace.Right;
+            var facePlanes = FacePlanes(isSide ? side : end, isSide ? bh : hh, isSide ? "Sidobräda" : "Ändbräda");
+            rot += ShortestDelta(prevAngle, FaceAngle(face));
+            prevAngle = FaceAngle(face);
 
-            double angle = FaceAngle(face);
-            rot += ShortestDelta(prevAngle, angle);
-            prevAngle = angle;
-
-            cuts.Add(new SawCut
+            double? prev = null;
+            foreach (var (label, dist) in facePlanes)
             {
-                Number = n++,
-                Face = face,
-                Label = label,
-                DistanceFromCenterInches = dist,
-                StepFromPreviousInches = step,
-                RotationDegrees = rot,
-            });
+                cuts.Add(new SawCut
+                {
+                    Number = n++,
+                    Face = face,
+                    Label = label,
+                    DistanceFromCenterInches = dist,
+                    StepFromPreviousInches = prev is double p ? Math.Abs(p - dist) : null,
+                    RotationDegrees = rot,
+                });
+                prev = dist;
+            }
         }
 
-        // Delning av blocket (block upprätt). Använd måldimensionens uppdelning om given.
+        // Skivfas: block upprätt, EN orientering, uppifrån och ned (ingen vändning).
         rot += ShortestDelta(prevAngle, FaceAngle(SawFace.Block));
-        var block = blockPieces ?? PostningLayout.BlockPieces(r);
-        double? prevSplit = null;
-        for (int i = 0; i < block.Count - 1; i++)
+        var slice = method == SawMethod.Varv90
+            ? ReglarPlanes(block, hh)              // ändbräder redan tagna som sidor
+            : FullSlicePlanes(block, end, hh);     // svälj ändbräder i skivningen
+        double? prevY = null;
+        foreach (var (label, y) in slice)
         {
-            double signed = -hh + block[i].End;
             cuts.Add(new SawCut
             {
                 Number = n++,
                 Face = SawFace.Block,
-                Label = $"Delning {i + 1}",
-                DistanceFromCenterInches = Math.Abs(signed),
-                StepFromPreviousInches = prevSplit is double ps ? Math.Abs(signed - ps) : null,
-                AboveCenter = signed < 0,
+                Label = label,
+                DistanceFromCenterInches = Math.Abs(y),
+                StepFromPreviousInches = prevY is double py ? Math.Abs(y - py) : null,
+                AboveCenter = y < 0,
                 RotationDegrees = rot,
             });
-            prevSplit = signed;
+            prevY = y;
         }
 
         return cuts;
+    }
+
+    // Bara de inre reglarna (block-ytorna finns redan) — för varvsågning.
+    private static List<(string, double)> ReglarPlanes(IReadOnlyList<Piece> block, double hh)
+    {
+        var list = new List<(string, double)>();
+        for (int i = 0; i < block.Count - 1; i++)
+            list.Add(($"Delning {i + 1}", -hh + block[i].End));
+        return list;
+    }
+
+    // Hela blocket skivas uppifrån och ned: bak, ev. ändbräder, alla reglar, ev. undre ändbräder.
+    private static List<(string, double)> FullSlicePlanes(IReadOnlyList<Piece> block, IReadOnlyList<Piece> end, double hh)
+    {
+        var list = new List<(string, double)>();
+        double topUpper = end.Count > 0 ? -(hh + end[^1].End) : -hh;
+        list.Add(("Bak (kanta av)", topUpper));
+        for (int i = end.Count - 1; i >= 0; i--)
+            list.Add(("Ändbräda (topp)", -(hh + end[i].Start)));
+        for (int i = 0; i < block.Count; i++)
+            list.Add(($"Regel/bräda {i + 1}", -hh + block[i].End));
+        for (int i = 0; i < end.Count; i++)
+            list.Add(("Ändbräda (botten)", hh + end[i].End));
+        return list;
     }
 
     /// <summary>Rotation (grader) som lägger en sida uppåt.</summary>
@@ -138,38 +157,6 @@ public static class SawSequence
             list.Add(($"{char.ToUpper(boardName[0]) + boardName[1..]} {nr}", blockHalf + pieces[i].Start));
         }
         return list;
-    }
-
-    private static List<(SawFace, int)> Sequential(
-        Dictionary<SawFace, List<(string, double)>> planes, SawFace[] faceOrder)
-    {
-        var result = new List<(SawFace, int)>();
-        foreach (var f in faceOrder)
-            for (int i = 0; i < planes[f].Count; i++)
-                result.Add((f, i));
-        return result;
-    }
-
-    private static List<(SawFace, int)> RoundRobin(
-        Dictionary<SawFace, List<(string, double)>> planes, SawFace[] faceOrder)
-    {
-        var result = new List<(SawFace, int)>();
-        var ptr = faceOrder.ToDictionary(f => f, _ => 0);
-        bool any = true;
-        while (any)
-        {
-            any = false;
-            foreach (var f in faceOrder)
-            {
-                if (ptr[f] < planes[f].Count)
-                {
-                    result.Add((f, ptr[f]));
-                    ptr[f]++;
-                    any = true;
-                }
-            }
-        }
-        return result;
     }
 
     // Kortaste vinkeländring a→b, i intervallet (−180, 180].

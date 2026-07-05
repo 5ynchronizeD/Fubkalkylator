@@ -61,38 +61,54 @@ public class SawSequenceTests
     }
 
     [Fact]
-    public void Block_split_cuts_are_within_block_height()
+    public void Slice_cuts_are_within_the_preblock_height()
     {
         var r = PostningsMax.Compute(9.75);
-        double hh = r.BlockHeight.Inches / 2.0;
+        double fhh = r.PreBlockHeight.Inches / 2.0;   // skivfasen kan svälja ändbräder ut till förblockskanten
         var split = SawSequence.Compute(r).Where(c => c.Face == SawFace.Block).ToList();
-        Assert.All(split, c => Assert.InRange(c.DistanceFromCenterInches, 0, hh + 1e-9));
+        Assert.NotEmpty(split);
+        Assert.All(split, c => Assert.InRange(c.DistanceFromCenterInches, 0, fhh + 1e-9));
         Assert.All(split, c => Assert.NotNull(c.AboveCenter));
     }
 
     [Fact]
-    public void Both_methods_produce_the_same_set_of_cuts_in_different_order()
+    public void Slice_phase_never_rotates_between_cuts()
     {
-        var r = PostningsMax.Compute(9.75);
-        var block = SawSequence.Compute(r, SawMethod.Block180);
-        var varv = SawSequence.Compute(r, SawMethod.Varv90);
-
-        Assert.Equal(block.Count, varv.Count);
-        // Samma mängd distanser, olika ordning.
-        Assert.Equal(
-            block.Select(c => Math.Round(c.DistanceFromCenterInches, 4)).OrderBy(x => x),
-            varv.Select(c => Math.Round(c.DistanceFromCenterInches, 4)).OrderBy(x => x));
+        // "Man kapar alla från samma sida blocket är framme" — delningen/skivningen
+        // ska ske i EN orientering, utan vändning mellan snitten.
+        foreach (var method in new[] { SawMethod.Block180, SawMethod.Varv90 })
+        {
+            var slice = SawSequence.Compute(PostningsMax.Compute(9.75), method)
+                .Where(c => c.Face == SawFace.Block).ToList();
+            Assert.All(slice, c => Assert.Equal(slice[0].RotationDegrees, c.RotationDegrees, 3));
+        }
     }
 
     [Fact]
-    public void Varv90_turns_between_consecutive_faces()
+    public void Rotation_stays_bounded_never_spins_wildly()
     {
-        var varv = SawSequence.Compute(PostningsMax.Compute(9.75), SawMethod.Varv90)
-            .Where(c => c.Face != SawFace.Block).ToList();
-        // Varvsågning byter sida mellan minst några på varandra följande snitt.
-        bool switchesFaces = false;
-        for (int i = 1; i < varv.Count; i++)
-            if (varv[i].Face != varv[i - 1].Face) { switchesFaces = true; break; }
-        Assert.True(switchesFaces);
+        // Man vänder stocken max ~4 gånger — rotationen ska aldrig dra iväg
+        // flera hela varv (t.ex. round-robin som vände 90° per bräda).
+        foreach (var method in new[] { SawMethod.Block180, SawMethod.Varv90 })
+        {
+            var cuts = SawSequence.Compute(PostningsMax.Compute(9.75), method);
+            Assert.All(cuts, c => Assert.True(Math.Abs(c.RotationDegrees) <= 360 + 1e-6,
+                $"{method}: {c.RotationDegrees}° överskrider 4 kvartsvarv"));
+        }
+    }
+
+    [Fact]
+    public void Each_face_is_sawn_in_one_run_not_interleaved()
+    {
+        // Sekventiellt: när en sida lämnats återkommer man inte till den.
+        foreach (var method in new[] { SawMethod.Block180, SawMethod.Varv90 })
+        {
+            var faces = SawSequence.Compute(PostningsMax.Compute(9.75), method)
+                .Where(c => c.Face != SawFace.Block).Select(c => c.Face).ToList();
+            var seen = new HashSet<SawFace>();
+            for (int i = 0; i < faces.Count; i++)
+                if (i == 0 || faces[i] != faces[i - 1])
+                    Assert.True(seen.Add(faces[i]), $"{method}: återkom till {faces[i]}");
+        }
     }
 }
