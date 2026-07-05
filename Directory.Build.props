@@ -3,7 +3,7 @@
   <!-- Delad version för hela lösningen. Bumpa här så följer både UI:t
        (footer) och Android-appens ApplicationDisplayVersion med. -->
   <PropertyGroup>
-    <Version>1.3.5</Version>
+    <Version>1.4.0</Version>
   </PropertyGroup>
 
 </Project>

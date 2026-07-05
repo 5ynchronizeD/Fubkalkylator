@@ -7,6 +7,8 @@ public enum SawMethod
     Block180,
     /// <summary>Varvsågning: ett snitt, vänd 90°, ett snitt, vänd 90° … runt stocken.</summary>
     Varv90,
+    /// <summary>Genomsågning: parallella snitt rakt igenom hela stocken, ingen vändning.</summary>
+    Genomsagning,
 }
 
 /// <summary>Vilken sida av stocken som sågas (styr rotation och snittlinje).</summary>
@@ -46,6 +48,32 @@ public static class SawSequence
         var side = PostningLayout.SidePiecesPerSide(r);
         var end = PostningLayout.EndPiecesPerSide(r);
         var block = blockPieces ?? PostningLayout.BlockPieces(r);
+
+        // Genomsågning: parallella snitt rakt igenom hela stocken, en orientering,
+        // inget block/sidoutbyte. Brädtjocklek = blockets (mål)regeltjocklek.
+        if (method == SawMethod.Genomsagning)
+        {
+            double woodR = r.DiameterUnderBark.Inches / 2.0;
+            double t = block.Count > 0 ? block[0].Thickness : 2.0;
+            var gcuts = new List<SawCut>();
+            int gn = 1;
+            double? gPrev = null;
+            foreach (var (label, y) in GenomPlanes(woodR, t, r.KerfInches))
+            {
+                gcuts.Add(new SawCut
+                {
+                    Number = gn++,
+                    Face = SawFace.Block,
+                    Label = label,
+                    DistanceFromCenterInches = Math.Abs(y),
+                    StepFromPreviousInches = gPrev is double gp ? Math.Abs(y - gp) : null,
+                    AboveCenter = y < 0,
+                    RotationDegrees = 0,
+                });
+                gPrev = y;
+            }
+            return gcuts;
+        }
 
         // Blocksågning: ta bredd-sidorna (Left→Right = 180°), vänd sedan 90° och
         //   skiva HELA blocket uppifrån och ned i en orientering — ändbräder, reglar
@@ -156,6 +184,27 @@ public static class SawSequence
             int nr = pieces.Count - i;
             list.Add(($"{char.ToUpper(boardName[0]) + boardName[1..]} {nr}", blockHalf + pieces[i].Start));
         }
+        return list;
+    }
+
+    // Parallella snitt genom hela stocken, med en bräda centrerad på märgen.
+    // Returnerar snittplan (signerad y) uppifrån och ned; första snittet kantar av toppen.
+    private static List<(string, double)> GenomPlanes(double woodR, double t, double kerf)
+    {
+        if (t <= 0) t = 2.0;
+        var boards = new List<(double Top, double Bot)> { (-t / 2, t / 2) };
+        for (int j = 1; ; j++)
+        {
+            double top = t / 2 + kerf + (j - 1) * (t + kerf);
+            if (top + t > woodR) break;       // bara brädor som ryms helt i stocken
+            boards.Add((top, top + t));       // nedanför märgen
+            boards.Add((-(top + t), -top));   // ovanför märgen
+        }
+        boards.Sort((a, b) => a.Top.CompareTo(b.Top));
+
+        var list = new List<(string, double)> { ("Bak (kanta av)", boards[0].Top) };
+        for (int i = 0; i < boards.Count; i++)
+            list.Add(($"Bräda {i + 1}", boards[i].Bot));
         return list;
     }
 

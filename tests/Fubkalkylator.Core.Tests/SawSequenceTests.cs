@@ -72,6 +72,21 @@ public class SawSequenceTests
     }
 
     [Fact]
+    public void Genomsagning_is_parallel_cuts_through_the_whole_log_without_rotation()
+    {
+        var r = PostningsMax.Compute(9.75);
+        var cuts = SawSequence.Compute(r, SawMethod.Genomsagning);
+        double woodR = r.DiameterUnderBark.Inches / 2.0;
+
+        Assert.NotEmpty(cuts);
+        Assert.All(cuts, c => Assert.Equal(0, c.RotationDegrees));   // ingen vändning
+        Assert.All(cuts, c => Assert.Equal(SawFace.Block, c.Face));  // inget block/sidoutbyte — allt skivas
+        Assert.All(cuts, c => Assert.InRange(c.DistanceFromCenterInches, 0, woodR + 1e-9));
+        // Snitten ligger över hela diametern (minst ett en bit ut från centrum).
+        Assert.Contains(cuts, c => c.DistanceFromCenterInches > woodR * 0.5);
+    }
+
+    [Fact]
     public void Slice_phase_never_rotates_between_cuts()
     {
         // "Man kapar alla från samma sida blocket är framme" — delningen/skivningen

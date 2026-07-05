@@ -9,13 +9,12 @@
     @if (Result is not null)
     {
         <div class="stepsaw-method">
-            <label>Sågordning</label>
-            <div class="seg small">
-                <button type="button" class="@(Saw.SawMethod == SawMethod.Block180 ? "on" : null)"
-                        @onclick="() => SetMethod(SawMethod.Block180)">Blocksågning</button>
-                <button type="button" class="@(Saw.SawMethod == SawMethod.Varv90 ? "on" : null)"
-                        @onclick="() => SetMethod(SawMethod.Varv90)">Varvsågning</button>
-            </div>
+            <label for="sawmethod">Sågordning</label>
+            <select id="sawmethod" class="fld" @bind="Method" @bind:event="onchange">
+                <option value="@SawMethod.Block180">Blocksågning</option>
+                <option value="@SawMethod.Varv90">Varvsågning</option>
+                <option value="@SawMethod.Genomsagning">Genomsågning</option>
+            </select>
         </div>
 
         <div class="stepsaw-stage">
@@ -33,7 +32,7 @@
             else
             {
                 var cut = cuts[step - 1];
-                <strong>@step/@cuts.Count · @FaceName(cut.Face)</strong>
+                <strong>@step/@cuts.Count · @(Saw.SawMethod == SawMethod.Genomsagning ? "Genomsågning" : FaceName(cut.Face))</strong>
                 <span class="cut-label">@cut.Label</span>
                 @if (cut.StepFromPreviousInches is double s)
                 {
@@ -90,6 +89,8 @@
     private async Task Next() { if (step < cuts.Count) { step++; await RotateThenReveal(); } }
     private async Task Prev() { if (step > 0) { step--; await RotateThenReveal(); } }
     private void Reset() { step = 0; revealCut = true; }
+
+    private SawMethod Method { get => Saw.SawMethod; set => SetMethod(value); }
 
     private void SetMethod(SawMethod m)
     {

@@ -101,6 +101,8 @@ public static class CrossSectionSvg
         IReadOnlyList<Piece>? blockPieces = null)
     {
         var blockList = blockPieces ?? PostningLayout.BlockPieces(r);
+        if (method == SawMethod.Genomsagning)
+            return RenderGenom(r, completedCuts, showCutLine, blockList);
         double B = r.BlockWidth.Inches, H = r.BlockHeight.Inches;
         double bh = B / 2, hh = H / 2;
         double woodR = r.DiameterUnderBark.Inches / 2.0;
@@ -170,6 +172,47 @@ public static class CrossSectionSvg
             AppendDimension(sb, cuts, completedCuts, woodR);
         }
 
+        sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(barkR * 0.02 + 0.05)}\" fill=\"{Stroke}\"/>");
+        sb.Append("</g></svg>");
+        return sb.ToString();
+    }
+
+    // Genomsågning: hela stocken skivas i parallella brädor (inget block), en orientering.
+    private static string RenderGenom(PostningResult r, int completedCuts, bool showCutLine, IReadOnlyList<Piece> blockList)
+    {
+        double woodR = r.DiameterUnderBark.Inches / 2.0;
+        double barkR = woodR * ApteringsMax.BarkFactor;
+        double pad = barkR * 0.14, vb = (barkR + pad) * 2.0, c = vb / 2.0, big = barkR + pad;
+
+        var cuts = SawSequence.Compute(r, SawMethod.Genomsagning, blockList);
+        var ys = new List<double>();
+        foreach (var cut in cuts)
+            ys.Add(cut.AboveCenter == true ? -cut.DistanceFromCenterInches : cut.DistanceFromCenterInches);
+        double topEdge = completedCuts >= 1 && completedCuts <= ys.Count ? ys[completedCuts - 1] : -big;
+
+        double t = blockList.Count > 0 ? blockList[0].Thickness : 2.0;
+        string boardFill = Math.Abs(t - 1.0) < 0.5 ? OneInchFill : (Math.Abs(t - 2.0) < 0.6 ? TwoInchFill : TargetFill);
+
+        var sb = new StringBuilder();
+        sb.Append(CultureInfo.InvariantCulture, $"<svg class=\"log-svg\" viewBox=\"0 0 {F(vb)} {F(vb)}\" role=\"img\" aria-label=\"Genomsågning, steg {completedCuts}\">");
+        sb.Append("<defs><radialGradient id=\"wood\" cx=\"42%\" cy=\"38%\" r=\"70%\">");
+        sb.Append("<stop offset=\"0%\" stop-color=\"#faeecb\"/><stop offset=\"100%\" stop-color=\"#efd9a3\"/></radialGradient>");
+        sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"log\"><circle r=\"{F(woodR)}\"/></clipPath>");
+        sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"shape\"><rect x=\"{F(-big)}\" y=\"{F(topEdge)}\" width=\"{F(2 * big)}\" height=\"{F(big - topEdge)}\"/></clipPath></defs>");
+        sb.Append(CultureInfo.InvariantCulture, $"<g transform=\"translate({F(c)} {F(c)})\">");
+        sb.Append("<g clip-path=\"url(#shape)\">");
+        sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(barkR)}\" fill=\"#5b3a21\"/>");
+        sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(woodR)}\" fill=\"url(#wood)\" stroke=\"#c9a86a\" stroke-width=\"1\" vector-effect=\"non-scaling-stroke\"/>");
+        sb.Append("<g clip-path=\"url(#log)\">");
+        for (int i = 0; i < ys.Count - 1; i++)
+            Rect(sb, -big, ys[i], 2 * big, ys[i + 1] - ys[i], boardFill);
+        sb.Append("</g></g>");
+
+        if (showCutLine && completedCuts >= 1 && completedCuts <= cuts.Count)
+        {
+            AppendCutLine(sb, cuts[completedCuts - 1], woodR);
+            AppendDimension(sb, cuts, completedCuts, woodR);
+        }
         sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(barkR * 0.02 + 0.05)}\" fill=\"{Stroke}\"/>");
         sb.Append("</g></svg>");
         return sb.ToString();
