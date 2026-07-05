@@ -494,3 +494,9 @@ code {
 .chip.hero { flex: 1 1 100%; background: var(--forest); color: #fff; border-color: var(--forest-2); }
 .chip.hero span { color: #bfe0c9; }
 .chip.hero strong { font-size: 1.5rem; }
+
+/* Inbäddad i stega-igenom-panelen: ingen dubbel kort-ram. */
+.stepsaw .toeboard {
+    background: transparent; border: 0; box-shadow: none; padding: 0;
+    margin: .9rem 0 0; border-top: 1px solid var(--line); padding-top: .9rem;
+}
