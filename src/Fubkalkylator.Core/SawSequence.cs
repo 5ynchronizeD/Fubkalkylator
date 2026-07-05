@@ -210,4 +210,40 @@ public static class SawSequence
 
     // Kortaste vinkeländring a→b, i intervallet (−180, 180].
     private static double ShortestDelta(double a, double b) => ((b - a + 540) % 360) - 180;
+
+    /// <summary>
+    /// Ligger barken nedåt vid ett visst steg? Bilden roteras så att det aktuella
+    /// snittet hamnar uppåt; den sida som då hamnar nedåt vilar mot bädden. Är den
+    /// sidan ännu inte sågad (fortfarande rund) så vilar stocken på bark — då är
+    /// topphöjning aktuell. Hel stock (0 snitt) räknas som bark nedåt.
+    /// </summary>
+    public static bool IsBarkDown(PostningResult r, int completedCuts, SawMethod method = SawMethod.Block180,
+        IReadOnlyList<Piece>? blockPieces = null)
+    {
+        if (completedCuts <= 0) return true;                  // hel stock — bark runt om
+        var cuts = Compute(r, method, blockPieces);
+        if (cuts.Count == 0) return true;
+
+        double angle = cuts[Math.Min(completedCuts, cuts.Count) - 1].RotationDegrees;
+
+        // Vilken sida hamnar nedåt (skärm-ned) efter rotationen?
+        //   0°→botten, 90°→höger, 180°→topp, 270°→vänster.
+        double a = ((angle % 360) + 360) % 360;
+        SawFace down = (((int)Math.Round(a / 90.0)) % 4) switch
+        {
+            0 => SawFace.Bottom,
+            1 => SawFace.Right,
+            2 => SawFace.Top,
+            _ => SawFace.Left,
+        };
+
+        // Har den sidan sågats ännu? Toppen räknas som sågad så snart ett
+        // delningssnitt (Block) kapat blocket uppifrån.
+        for (int i = 0; i < completedCuts && i < cuts.Count; i++)
+        {
+            if (cuts[i].Face == down) return false;
+            if (down == SawFace.Top && cuts[i].Face == SawFace.Block) return false;
+        }
+        return true;
+    }
 }

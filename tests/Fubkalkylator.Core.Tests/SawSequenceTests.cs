@@ -128,6 +128,26 @@ public class SawSequenceTests
     }
 
     [Fact]
+    public void Whole_log_rests_on_bark()
+    {
+        var r = PostningsMax.Compute(9.75);
+        Assert.True(SawSequence.IsBarkDown(r, 0, SawMethod.Block180));
+    }
+
+    [Fact]
+    public void After_flipping_180_the_flat_side_rests_down_not_bark()
+    {
+        // Blocksågning: snitt 1 öppnar en sida (motstående runda sidan är nedåt = bark),
+        // efter vändningen 180° ligger den nyss sågade platta sidan nedåt = ingen bark.
+        var r = PostningsMax.Compute(9.75);
+        var cuts = SawSequence.Compute(r, SawMethod.Block180);
+        int firstSecondFace = cuts.TakeWhile(c => c.Face == cuts[0].Face).Count(); // steg där sida 2 börjar
+
+        Assert.True(SawSequence.IsBarkDown(r, 1, SawMethod.Block180));                 // första sidan: bark nedåt
+        Assert.False(SawSequence.IsBarkDown(r, firstSecondFace + 1, SawMethod.Block180)); // efter 180°: plan yta nedåt
+    }
+
+    [Fact]
     public void Each_face_is_sawn_in_one_run_not_interleaved()
     {
         // Sekventiellt: när en sida lämnats återkommer man inte till den.

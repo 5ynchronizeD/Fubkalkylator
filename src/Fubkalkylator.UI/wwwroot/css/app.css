@@ -478,22 +478,31 @@ code {
 }
 .toeboard-remind p { margin: 0; font-size: .9rem; }
 .toeboard-ico { color: var(--wood); font-size: 1.2rem; line-height: 1; }
-[data-theme="dark"] .toeboard-remind { background: #2e2515; border-color: #4a3c22; color: #e0c48c; }
+[data-theme="dark"] .toeboard-remind { background: #2e2515; border-color: #4a3c22; color: #e6ce97; }
+
+/* Grönt "lugnt"-läge när en sågad yta ligger nedåt (ingen bark). */
+.toeboard-remind.ok { background: #eaf3ec; border-color: #cfe3d4; color: #2f5233; }
+.toeboard-remind.ok .toeboard-ico { color: var(--leaf); }
+[data-theme="dark"] .toeboard-remind.ok { background: #1b2c20; border-color: #2c4633; color: #bfe0c9; }
 
 .toeboard-svg { width: 100%; max-width: 320px; height: auto; display: block; margin: .2rem 0 .6rem; }
 .toeboard-svg .tb-bed { stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
 .toeboard-svg .tb-log { fill: var(--wood-light); stroke: var(--wood); stroke-width: 1.5; }
 .toeboard-svg .tb-pith { stroke: #7a3f12; stroke-width: 1.2; stroke-dasharray: 4 3; }
 .toeboard-svg .tb-wedge { fill: var(--leaf); opacity: .85; }
-.toeboard-svg .tb-arrow { fill: none; stroke: var(--forest); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.toeboard-svg .tb-arrow { fill: none; stroke: #2f5233; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .toeboard-svg .tb-lbl { fill: var(--muted); font-size: 8px; }
 .toeboard-svg .tb-lbl.mid { fill: #7a3f12; text-anchor: middle; }
-[data-theme="dark"] .toeboard-svg .tb-pith,
-[data-theme="dark"] .toeboard-svg .tb-lbl.mid { stroke: #e3b466; fill: #e3b466; }
+/* Mörkt tema: mörka konturer skulle försvinna mot bakgrunden — ljusa upp dem. */
+[data-theme="dark"] .toeboard-svg .tb-pith { stroke: #e3b466; }
+[data-theme="dark"] .toeboard-svg .tb-lbl.mid { fill: #e3b466; }
+[data-theme="dark"] .toeboard-svg .tb-arrow { stroke: #7fd39e; }
 
 .chip.hero { flex: 1 1 100%; background: var(--forest); color: #fff; border-color: var(--forest-2); }
 .chip.hero span { color: #bfe0c9; }
 .chip.hero strong { font-size: 1.5rem; }
+[data-theme="dark"] .chip.hero { background: #22432e; border-color: #356148; }
+[data-theme="dark"] .chip.hero span { color: #a9d4b8; }
 
 /* Inbäddad i stega-igenom-panelen: ingen dubbel kort-ram. */
 .stepsaw .toeboard {
