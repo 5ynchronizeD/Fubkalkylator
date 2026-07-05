@@ -18,11 +18,15 @@
     <table class="order-table">
         <thead>
             <tr>
-                <th>Tjocklek (mm)</th><th>Bredd (mm)</th><th>Antal</th>
+                <th>Tjocklek (mm)</th><th>Bredd (mm)</th><th>Längd (mm)</th><th>Antal</th>
                 <th>Minsta stock</th><th>Bitar/stock</th><th>Stockar</th><th></th>
             </tr>
         </thead>
         <tbody>
+            @if (rows.Count == 0)
+            {
+                <tr class="empty-row"><td colspan="8" class="na">Inga rader ännu — tryck ＋ Lägg till rad.</td></tr>
+            }
             @for (int i = 0; i < rows.Count; i++)
             {
                 var row = rows[i];
@@ -30,6 +34,7 @@
                 <tr @key="row">
                     <td><input type="number" step="1" min="1" max="300" @bind="row.ThickMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
                     <td><input type="number" step="1" min="1" max="520" @bind="row.WidthMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
+                    <td><input type="number" step="1" min="1" max="12000" @bind="row.LengthMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
                     <td><input type="number" step="1" min="0" max="9999" @bind="row.Qty" @bind:event="oninput" @bind:after="Recalculate" /></td>
                     @if (line?.Achievable == true)
                     {
@@ -48,7 +53,7 @@
         @if (plan is not null && plan.Lines.Any(l => l.Achievable))
         {
             <tfoot>
-                <tr class="sum"><td colspan="5">Totalt antal stockar</td><td><strong>@plan.TotalLogs st</strong></td><td></td></tr>
+                <tr class="sum"><td colspan="6">Totalt antal stockar</td><td><strong>@plan.TotalLogs st</strong></td><td></td></tr>
             </tfoot>
         }
     </table>
@@ -65,10 +70,11 @@
     {
         public double ThickMm { get; set; } = 45;
         public double WidthMm { get; set; } = 95;
+        public double LengthMm { get; set; } = 3600;
         public int Qty { get; set; } = 10;
     }
 
-    private List<Row> rows = new() { new Row() };
+    private List<Row> rows = new();
     private OrderPlan? plan;
     private bool ready;
 
@@ -91,7 +97,7 @@
     }
 
     private void AddRow() { rows.Add(new Row()); Recalculate(); }
-    private void RemoveRow(Row row) { rows.Remove(row); if (rows.Count == 0) rows.Add(new Row()); Recalculate(); }
+    private void RemoveRow(Row row) { rows.Remove(row); Recalculate(); }
 
     private void Recalculate()
     {
