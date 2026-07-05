@@ -16,10 +16,15 @@
                 <option value="@SawMethod.Genomsagning">Genomsågning</option>
             </select>
         </div>
+        <label class="stepsaw-pith">
+            <input type="checkbox" @bind="CenterPith" @bind:event="onchange"
+                   disabled="@(Saw.SawMethod == SawMethod.Genomsagning)" />
+            Snitt genom kärnan (märgdelning)
+        </label>
 
         <div class="stepsaw-stage">
             <div class="stepsaw-rot" style="transform: rotate(@Deg(Angle)deg);">
-                @((MarkupString)CrossSectionSvg.RenderStepped(Result, step, Saw.SawMethod, revealCut, BlockPieces))
+                @((MarkupString)CrossSectionSvg.RenderStepped(Result, step, Saw.SawMethod, revealCut, EffectiveBlock()))
             </div>
         </div>
 
@@ -68,18 +73,29 @@
 
     protected override void OnParametersSet()
     {
-        cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, BlockPieces);
+        cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, EffectiveBlock());
         if (step > cuts.Count) step = cuts.Count;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
+        bool changed = false;
         var s = await JS.InvokeAsync<string?>("appStore.get", "sawMethod");
         if (int.TryParse(s, out var m) && Enum.IsDefined(typeof(SawMethod), m) && (SawMethod)m != Saw.SawMethod)
         {
             Saw.SawMethod = (SawMethod)m;
-            cuts = SawSequence.Compute(Result!, Saw.SawMethod, BlockPieces);
+            changed = true;
+        }
+        var cp = await JS.InvokeAsync<string?>("appStore.get", "centerPith");
+        if (cp is "1" or "0" && (cp == "1") != Saw.CenterCutThroughPith)
+        {
+            Saw.CenterCutThroughPith = cp == "1";
+            changed = true;
+        }
+        if (changed)
+        {
+            cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, EffectiveBlock());
             StateHasChanged();
         }
     }
@@ -96,9 +112,32 @@
     {
         Saw.SawMethod = m;
         _ = JS.InvokeVoidAsync("appStore.set", "sawMethod", ((int)m).ToString(CultureInfo.InvariantCulture));
-        cuts = SawSequence.Compute(Result!, m, BlockPieces);
+        cuts = SawSequence.Compute(Result!, m, EffectiveBlock());
         step = 0;
         revealCut = true;
+    }
+
+    private bool CenterPith
+    {
+        get => Saw.CenterCutThroughPith;
+        set
+        {
+            Saw.CenterCutThroughPith = value;
+            _ = JS.InvokeVoidAsync("appStore.set", "centerPith", value ? "1" : "0");
+            cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, EffectiveBlock());
+            step = 0;
+            revealCut = true;
+        }
+    }
+
+    // Blockuppdelning som används: centrerad kring märgen om märgdelning är på (block-/varvsågning).
+    private IReadOnlyList<Piece>? EffectiveBlock()
+    {
+        if (Result is null || !Saw.CenterCutThroughPith || Saw.SawMethod == SawMethod.Genomsagning)
+            return BlockPieces;
+        var baseBlock = BlockPieces ?? PostningLayout.BlockPieces(Result);
+        if (baseBlock.Count == 0) return BlockPieces;
+        return PostningLayout.CenteredBlockPieces(Result.BlockHeight.Inches, baseBlock[0].Thickness, Result.KerfInches);
     }
 
     // Rotera först (dölj snittet), visa snittlinjen efter att rotationen animerat klart.

@@ -87,6 +87,21 @@ public class SawSequenceTests
     }
 
     [Fact]
+    public void Center_cut_places_a_saw_cut_at_the_pith()
+    {
+        var r = PostningsMax.Compute(9.75);
+        var centered = PostningLayout.CenteredBlockPieces(r.BlockHeight.Inches, 2.0, r.KerfInches);
+
+        // En styckegräns ligger vid märgen (H/2 från blockets ovankant).
+        double hc = r.BlockHeight.Inches / 2.0;
+        Assert.Contains(centered, p => Math.Abs(p.End - hc) < 1e-6 || Math.Abs(p.Start - hc) < 1e-6);
+
+        // Och ett delningssnitt hamnar då ~i centrum (0 från märgen).
+        var cuts = SawSequence.Compute(r, SawMethod.Block180, centered);
+        Assert.Contains(cuts.Where(c => c.Face == SawFace.Block), c => c.DistanceFromCenterInches < 0.05);
+    }
+
+    [Fact]
     public void Slice_phase_never_rotates_between_cuts()
     {
         // "Man kapar alla från samma sida blocket är framme" — delningen/skivningen

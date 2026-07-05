@@ -22,6 +22,9 @@ public class SawSettings
     /// <summary>Vald sågmetod (snittordning) för visualiseringen.</summary>
     public SawMethod SawMethod { get; set; } = SawMethod.Block180;
 
+    /// <summary>Märgdelning: lägg ett snitt genom kärnan (block-/varvsågning).</summary>
+    public bool CenterCutThroughPith { get; set; }
+
     /// <summary>Aktuell prislista utifrån inställningarna.</summary>
     public PriceList Prices => new()
     {

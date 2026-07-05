@@ -33,7 +33,16 @@
     [Parameter] public IReadOnlyList<Piece>? BlockPieces { get; set; }
 
     private IReadOnlyList<SawCut> Cuts =>
-        Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, BlockPieces);
+        Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, EffectiveBlock());
+
+    private IReadOnlyList<Piece>? EffectiveBlock()
+    {
+        if (Result is null || !Saw.CenterCutThroughPith || Saw.SawMethod == SawMethod.Genomsagning)
+            return BlockPieces;
+        var baseBlock = BlockPieces ?? PostningLayout.BlockPieces(Result);
+        if (baseBlock.Count == 0) return BlockPieces;
+        return PostningLayout.CenteredBlockPieces(Result.BlockHeight.Inches, baseBlock[0].Thickness, Result.KerfInches);
+    }
 
     private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0");
     private static string Suffix(SawCut c) => c.AboveCenter is bool a ? (a ? " ovan centrum" : " under centrum") : " från centrum";
