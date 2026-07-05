@@ -1,0 +1,93 @@
+@inject IJSRuntime JS
+@using System.Globalization
+@using Fubkalkylator.Core
+
+<div class="card toeboard">
+    <div class="card-title">Topphöjning (toppningsbräda)</div>
+
+    <div class="toeboard-remind">
+        <span class="toeboard-ico">▲</span>
+        <p><strong>Bark nedåt?</strong> Då ligger märgen snett — lyft den <em>smalare toppänden</em>
+            så att märgen blir vågrät. Annars följer första snittet barken i stället för märgen.</p>
+    </div>
+
+    <svg class="toeboard-svg" viewBox="0 0 240 92" role="img" aria-label="Stock med barken nedåt och toppänden lyft på en toppningsbräda">
+        <line x1="8" y1="74" x2="232" y2="74" class="tb-bed" />
+        <polygon points="26,18 214,32 214,58 26,70" class="tb-log" />
+        <line x1="26" y1="44" x2="214" y2="44" class="tb-pith" />
+        <polygon points="150,74 214,74 214,58" class="tb-wedge" />
+        <text x="30" y="84" class="tb-lbl">rot</text>
+        <text x="196" y="84" class="tb-lbl">topp</text>
+        <text x="120" y="40" class="tb-lbl mid">märg (vågrät)</text>
+        <path d="M214 56 v-14 m-4 5 l4 -5 l4 5" class="tb-arrow" />
+    </svg>
+
+    <p class="hint">Ange rot- och toppdiameter (på bark eller fub — samma på båda) så räknar
+        appen fram hur mycket toppänden ska lyftas. Lyftet är halva diameterskillnaden.</p>
+
+    <div class="shrink-inputs">
+        <label>Rotände (grov)
+            <span class="value-box sm">
+                <input type="number" step="1" min="0" max="150" @bind="ButtCm" @bind:event="oninput" />
+                <span class="unit">cm</span>
+            </span>
+        </label>
+        <label>Toppände (smal)
+            <span class="value-box sm">
+                <input type="number" step="1" min="0" max="150" @bind="TopCm" @bind:event="oninput" />
+                <span class="unit">cm</span>
+            </span>
+        </label>
+    </div>
+
+    @if (buttCm >= topCm)
+    {
+        <div class="chips">
+            <div class="chip hero"><span>Lyft toppänden</span><strong>@Mm mm</strong></div>
+            <div class="chip"><span>≈</span><strong>@Raise.ToString("0.#") cm</strong></div>
+        </div>
+    }
+    else
+    {
+        <p class="note">Toppänden är angiven som grövre än roten — kontrollera värdena.</p>
+    }
+
+    <p class="note">B701 har en <em>manuell</em> toppningsbräda som ställs steglöst — det finns ingen fast
+        "mm per steg", utan du vevar upp toppen till måttet ovan (läs av på brädans skala om den finns).</p>
+</div>
+
+@code {
+    private const string ButtKey = "toeButtCm";
+    private const string TopKey = "toeTopCm";
+
+    private double buttCm = 30;
+    private double topCm = 24;
+    private bool ready;
+
+    private double ButtCm { get => buttCm; set { buttCm = value; Persist(ButtKey, value); } }
+    private double TopCm { get => topCm; set { topCm = value; Persist(TopKey, value); } }
+
+    private double Raise => Taper.ToeBoardRaiseCm(buttCm, topCm);
+    private string Mm => (Raise * 10).ToString("0", CultureInfo.InvariantCulture);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        buttCm = await Load(ButtKey, buttCm);
+        topCm = await Load(TopKey, topCm);
+        ready = true;
+        StateHasChanged();
+    }
+
+    private async Task<double> Load(string key, double fallback)
+    {
+        var s = await JS.InvokeAsync<string?>("appStore.get", key);
+        return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var v) && v >= 0 && v <= 150
+            ? v : fallback;
+    }
+
+    private void Persist(string key, double value)
+    {
+        if (ready) _ = JS.InvokeVoidAsync("appStore.set", key, value.ToString(CultureInfo.InvariantCulture));
+    }
+}

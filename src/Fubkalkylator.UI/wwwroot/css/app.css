@@ -469,3 +469,28 @@ code {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+/* ---------- Topphöjning (toppningsbräda) ---------- */
+.toeboard-remind {
+    display: flex; gap: .6rem; align-items: flex-start;
+    background: #fbf0e0; border: 1px solid #efd6ad; color: #6b4f2a;
+    border-radius: var(--radius); padding: .7rem .85rem; margin: .2rem 0 .9rem;
+}
+.toeboard-remind p { margin: 0; font-size: .9rem; }
+.toeboard-ico { color: var(--wood); font-size: 1.2rem; line-height: 1; }
+[data-theme="dark"] .toeboard-remind { background: #2e2515; border-color: #4a3c22; color: #e0c48c; }
+
+.toeboard-svg { width: 100%; max-width: 320px; height: auto; display: block; margin: .2rem 0 .6rem; }
+.toeboard-svg .tb-bed { stroke: var(--muted); stroke-width: 2; stroke-linecap: round; }
+.toeboard-svg .tb-log { fill: var(--wood-light); stroke: var(--wood); stroke-width: 1.5; }
+.toeboard-svg .tb-pith { stroke: #7a3f12; stroke-width: 1.2; stroke-dasharray: 4 3; }
+.toeboard-svg .tb-wedge { fill: var(--leaf); opacity: .85; }
+.toeboard-svg .tb-arrow { fill: none; stroke: var(--forest); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.toeboard-svg .tb-lbl { fill: var(--muted); font-size: 8px; }
+.toeboard-svg .tb-lbl.mid { fill: #7a3f12; text-anchor: middle; }
+[data-theme="dark"] .toeboard-svg .tb-pith,
+[data-theme="dark"] .toeboard-svg .tb-lbl.mid { stroke: #e3b466; fill: #e3b466; }
+
+.chip.hero { flex: 1 1 100%; background: var(--forest); color: #fff; border-color: var(--forest-2); }
+.chip.hero span { color: #bfe0c9; }
+.chip.hero strong { font-size: 1.5rem; }

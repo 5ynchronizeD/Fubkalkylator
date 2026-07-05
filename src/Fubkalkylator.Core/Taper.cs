@@ -28,4 +28,17 @@ public static class Taper
     /// <summary>Mittdiametern (halvvägs längs stocken).</summary>
     public static double MidDiameterCm(double topDiameterCm, double taperCmPerMeter, double lengthMeters)
         => topDiameterCm + taperCmPerMeter * lengthMeters / 2.0;
+
+    /// <summary>
+    /// Topphöjning (toppningsbräda på t.ex. Logosol): för att såga parallellt med
+    /// märgen läggs stocken med barken nedåt och den smalare toppänden lyfts så att
+    /// märgen blir vågrät. Lyftet är halva diameterskillnaden mellan rot- och toppände
+    /// (märgen sitter en radie över bädden i var ände). Returnerar 0 om toppen inte är
+    /// smalare (inget att kompensera för). Enheten följer indata (cm in → cm ut).
+    /// </summary>
+    public static double ToeBoardRaiseCm(double buttDiameterCm, double topDiameterCm)
+    {
+        double raise = (buttDiameterCm - topDiameterCm) / 2.0;
+        return raise > 0 ? raise : 0;
+    }
 }

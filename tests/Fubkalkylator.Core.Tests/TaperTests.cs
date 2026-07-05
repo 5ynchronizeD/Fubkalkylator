@@ -34,4 +34,18 @@ public class TaperTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Taper.ButtDiameterCm(25, 1, -1));
     }
+
+    [Fact]
+    public void Toe_board_raise_is_half_the_diameter_difference()
+    {
+        // Rot 30 cm, topp 24 cm → lyft toppen (30−24)/2 = 3 cm.
+        Assert.Equal(3, Taper.ToeBoardRaiseCm(30, 24), 9);
+    }
+
+    [Fact]
+    public void Toe_board_raise_is_zero_when_top_is_not_thinner()
+    {
+        Assert.Equal(0, Taper.ToeBoardRaiseCm(25, 25), 9);
+        Assert.Equal(0, Taper.ToeBoardRaiseCm(25, 30), 9);   // ingen negativ höjning
+    }
 }
