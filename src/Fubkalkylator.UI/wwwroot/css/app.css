@@ -480,6 +480,17 @@ code {
 .toeboard-ico { color: var(--wood); font-size: 1.2rem; line-height: 1; }
 [data-theme="dark"] .toeboard-remind { background: #2e2515; border-color: #4a3c22; color: #e6ce97; }
 
+/* Kompakt bark-läge direkt vid animationen (så man inte missar det). */
+.barkstate {
+    display: flex; align-items: center; gap: .4rem;
+    border-radius: 999px; padding: .4rem .8rem; margin: .5rem auto 0; width: fit-content;
+    font-size: .85rem; text-align: center;
+}
+.barkstate.down { background: #fbf0e0; border: 1px solid #efd6ad; color: #6b4f2a; }
+.barkstate.ok { background: #eaf3ec; border: 1px solid #cfe3d4; color: #2f5233; }
+[data-theme="dark"] .barkstate.down { background: #2e2515; border-color: #4a3c22; color: #e6ce97; }
+[data-theme="dark"] .barkstate.ok { background: #1b2c20; border-color: #2c4633; color: #bfe0c9; }
+
 /* Grönt "lugnt"-läge när en sågad yta ligger nedåt (ingen bark). */
 .toeboard-remind.ok { background: #eaf3ec; border-color: #cfe3d4; color: #2f5233; }
 .toeboard-remind.ok .toeboard-ico { color: var(--leaf); }

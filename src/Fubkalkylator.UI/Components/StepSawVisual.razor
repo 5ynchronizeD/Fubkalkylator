@@ -28,6 +28,17 @@
             </div>
         </div>
 
+        <div class="barkstate @(BarkDownNow ? "down" : "ok")">
+            @if (BarkDownNow)
+            {
+                <span>▲ <strong>Bark nedåt</strong> — lyft toppänden (se topphöjning nedan)</span>
+            }
+            else
+            {
+                <span>✓ <strong>Plan yta nedåt</strong> — ingen topphöjning för det här snittet</span>
+            }
+        </div>
+
         <div class="stepsaw-info">
             @if (step == 0)
             {
