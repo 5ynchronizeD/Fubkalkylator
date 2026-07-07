@@ -206,9 +206,13 @@ public class SawSequenceTests
     public void Clamp_reduces_or_keeps_the_number_of_slice_cuts()
     {
         var r = PostningsMax.Compute(13.0);
-        int none = SawSequence.Compute(r, SawMethod.Block180, null, 0).Count(c => c.Face == SawFace.Block);
-        int big = SawSequence.Compute(r, SawMethod.Block180, null, 5.0).Count(c => c.Face == SawFace.Block);
-        Assert.True(big <= none);
+        // Gäller alla stilar: block, varv och genom.
+        foreach (var method in new[] { SawMethod.Block180, SawMethod.Varv90, SawMethod.Genomsagning })
+        {
+            int none = SawSequence.Compute(r, method, null, 0).Count(c => c.Face == SawFace.Block);
+            int big = SawSequence.Compute(r, method, null, 5.0).Count(c => c.Face == SawFace.Block);
+            Assert.True(big <= none, $"{method}: klämma ökade antalet snitt");
+        }
     }
 
     [Fact]

@@ -115,7 +115,7 @@ public static class SawSequence
         // Skivfas: block upprätt, EN orientering, uppifrån och ned (ingen vändning).
         rot += ShortestDelta(prevAngle, FaceAngle(SawFace.Block));
         var slice = method == SawMethod.Varv90
-            ? ReglarPlanes(block, hh)                            // ändbräder redan tagna som sidor
+            ? ReglarPlanes(block, hh, clampInches)               // ändbräder redan tagna som sidor
             : ClampBottom(FullSlicePlanes(block, end, hh), clampInches); // svälj ändbräder + klämma
         double? prevY = null;
         foreach (var (label, y) in slice)
@@ -139,7 +139,7 @@ public static class SawSequence
     // Bara de inre reglarna (block-ytorna finns redan) — för varvsågning.
     // Vid märgdelning ligger reglarna som ett centrerat band med marginal upp/ned;
     // då kapas även bandets över- och underkant bort (marginalen = bark).
-    private static List<(string, double)> ReglarPlanes(IReadOnlyList<Piece> block, double hh)
+    private static List<(string, double)> ReglarPlanes(IReadOnlyList<Piece> block, double hh, double clampInches)
     {
         var list = new List<(string, double)>();
         if (block.Count == 0) return list;
@@ -149,6 +149,12 @@ public static class SawSequence
             list.Add(($"Delning {i + 1}", -hh + block[i].End));
         if (block[^1].End < 2 * hh - 1e-6)               // marginal nedtill → kanta bort
             list.Add(("Kanta block (botten)", -hh + block[^1].End));
+
+        // Stockklämma: bottenregeln (sista snittet → blockets underkant) minst klämman.
+        double bottomEdge = -hh + block[^1].End;
+        if (clampInches > 0)
+            while (list.Count > 0 && bottomEdge - list[^1].Item2 < clampInches - 1e-9)
+                list.RemoveAt(list.Count - 1);
         return list;
     }
 
