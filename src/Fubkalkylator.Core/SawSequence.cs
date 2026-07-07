@@ -114,9 +114,11 @@ public static class SawSequence
 
         // Skivfas: block upprätt, EN orientering, uppifrån och ned (ingen vändning).
         rot += ShortestDelta(prevAngle, FaceAngle(SawFace.Block));
+        // Block-/varvsågningens klämma hanteras redan i postningen (färre blockbrädor);
+        // här skivas de brädor som faktiskt går att såga.
         var slice = method == SawMethod.Varv90
-            ? ReglarPlanes(block, hh, clampInches)               // ändbräder redan tagna som sidor
-            : ClampBottom(FullSlicePlanes(block, end, hh), clampInches); // svälj ändbräder + klämma
+            ? ReglarPlanes(block, hh)              // ändbräder redan tagna som sidor
+            : FullSlicePlanes(block, end, hh);     // svälj ändbräder i skivningen
         double? prevY = null;
         foreach (var (label, y) in slice)
         {
@@ -139,7 +141,7 @@ public static class SawSequence
     // Bara de inre reglarna (block-ytorna finns redan) — för varvsågning.
     // Vid märgdelning ligger reglarna som ett centrerat band med marginal upp/ned;
     // då kapas även bandets över- och underkant bort (marginalen = bark).
-    private static List<(string, double)> ReglarPlanes(IReadOnlyList<Piece> block, double hh, double clampInches)
+    private static List<(string, double)> ReglarPlanes(IReadOnlyList<Piece> block, double hh)
     {
         var list = new List<(string, double)>();
         if (block.Count == 0) return list;
@@ -149,12 +151,6 @@ public static class SawSequence
             list.Add(($"Delning {i + 1}", -hh + block[i].End));
         if (block[^1].End < 2 * hh - 1e-6)               // marginal nedtill → kanta bort
             list.Add(("Kanta block (botten)", -hh + block[^1].End));
-
-        // Stockklämma: bottenregeln (sista snittet → blockets underkant) minst klämman.
-        double bottomEdge = -hh + block[^1].End;
-        if (clampInches > 0)
-            while (list.Count > 0 && bottomEdge - list[^1].Item2 < clampInches - 1e-9)
-                list.RemoveAt(list.Count - 1);
         return list;
     }
 
@@ -225,10 +221,10 @@ public static class SawSequence
         return list;
     }
 
-    // Stockklämma: den nedersta brädan (mot bädden/klämman) kan inte bli tunnare än
-    // klämmans höjd — bladet tar då i klämman. Snittplanen är sorterade uppifrån och ned;
-    // det sista planet är materialets underkant. Är bottenbrädan (mellan de två understa
-    // planen) för tunn tas snittet ovanför bort, så bottenbrädan blir tjockare.
+    // Stockklämma för genomsågning (block-/varvsågning hanteras i postningen): den
+    // nedersta brädan kan inte bli tunnare än klämman. Snittplanen är sorterade uppifrån
+    // och ned; är bottenbrädan (mellan de två understa planen) för tunn tas snittet
+    // ovanför bort så den blir tjockare (resten mot bädden går inte att såga).
     private static List<(string, double)> ClampBottom(List<(string, double)> planes, double clampInches)
     {
         if (clampInches <= 0) return planes;

@@ -57,7 +57,7 @@ public static class PostningsMax
     /// <param name="diameterUnderBarkInches">Toppdiameter under bark [fub] i tum.</param>
     /// <param name="kerfInches">Sågspår i tum (standard 1/4"; t.ex. ~0,12" för bandsåg).</param>
     public static PostningResult Compute(double diameterUnderBarkInches,
-        double kerfInches = SawConstants.KerfInches)
+        double kerfInches = SawConstants.KerfInches, double clampInches = 0)
     {
         if (diameterUnderBarkInches <= 0)
             throw new ArgumentOutOfRangeException(
@@ -77,6 +77,13 @@ public static class PostningsMax
         double rawHeight = 2.0 * halfDiagonal - blockWidth;
         BlockRow block = SawTables.SnapBlockHeight(rawHeight, kerfInches);
         double blockHeight = block.HeightInches;
+
+        // Stockklämma: den nedersta biten mot bädden kan inte sågas tunnare än klämman.
+        // Brädorna staplas 2" (topp) → 1" (botten); de understa som skulle lämna mindre
+        // än klämman kvar går inte att kapa och blir spill. Blockhöjden är oförändrad.
+        int blockTwo = block.TwoInchCount, blockOne = block.OneInchCount;
+        if (clampInches > 0)
+            (blockTwo, blockOne) = ClampBlockBoards(blockTwo, blockOne, blockHeight, kerfInches, clampInches);
 
         // Tjocklek på tillgängligt virke för änd-/sidobrädor (Data!B3 / B4).
         double endThickness = (fub - blockHeight - 1.0) / 2.0;   // Data!B3
@@ -100,8 +107,8 @@ public static class PostningsMax
             DiameterUnderBark = fub,
             BlockWidth = blockWidth,
             BlockHeight = blockHeight,
-            BlockOneInchBoards = block.OneInchCount,
-            BlockTwoInchBoards = block.TwoInchCount,
+            BlockOneInchBoards = blockOne,
+            BlockTwoInchBoards = blockTwo,
             EndOneInchBoards = endOne,
             EndTwoInchBoards = endTwo,
             SideOneInchBoards = sideOne,
@@ -110,5 +117,28 @@ public static class PostningsMax
             PreBlockHeight = preBlockHeight,
             KerfInches = kerfInches,
         };
+    }
+
+    // Kapar bort de understa blockbrädorna (först 1", sedan 2") så att det som blir
+    // kvar mot bädden (spill) är minst klämman — man kan inte såga en bräda som lämnar
+    // mindre än klämman kvar under bladet. Returnerar hur många 2" och 1" som blir kvar.
+    private static (int Two, int One) ClampBlockBoards(int n2, int n1, double height, double kerf, double clamp)
+    {
+        // Brädtjocklekar uppifrån och ned: n2 st 2", sedan n1 st 1".
+        int count = n2 + n1;
+        double pos = 0;
+        int keep = 0;
+        for (int i = 0; i < count; i++)
+        {
+            double t = i < n2 ? 2.0 : 1.0;
+            double end = pos + t;
+            // Kan brädan kapas? Dess undersnitt måste lämna minst klämman kvar.
+            if (end > height - clamp + 1e-9) break;
+            keep = i + 1;
+            pos = end + kerf;
+        }
+        int two = Math.Min(keep, n2);
+        int one = Math.Max(0, keep - n2);
+        return (two, one);
     }
 }

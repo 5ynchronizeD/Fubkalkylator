@@ -192,32 +192,34 @@ public class SawSequenceTests
     }
 
     [Fact]
-    public void Clamp_forces_the_bottom_board_to_be_at_least_clamp_height()
+    public void Clamp_drops_block_boards_that_cannot_be_sawn()
     {
-        var r = PostningsMax.Compute(13.0);
-        double clamp = 3.0;   // 3" klämma
+        // 9.75" ger block 7,75" med 3×2" + 1×1" (understa = 1" = 25 mm).
+        var full = PostningsMax.Compute(9.75);
+        var clamped = PostningsMax.Compute(9.75, SawConstants.KerfInches, 1.6);   // ~40 mm klämma
 
-        var ys = SawSequence.Compute(r, SawMethod.Block180, null, clamp)
-            .Where(c => c.Face == SawFace.Block)
-            .Select(c => c.AboveCenter == true ? -c.DistanceFromCenterInches : c.DistanceFromCenterInches)
-            .OrderBy(y => y).ToList();
-
-        Assert.True(ys.Count >= 2);
-        double bottomBoard = ys[^1] - ys[^2];   // mellan de två understa snitten
-        Assert.True(bottomBoard >= clamp - 1e-6, $"bottenbräda {bottomBoard}\" < klämma {clamp}\"");
+        int fullBoards = full.BlockOneInchBoards + full.BlockTwoInchBoards;
+        int clampedBoards = clamped.BlockOneInchBoards + clamped.BlockTwoInchBoards;
+        Assert.True(clampedBoards < fullBoards);                       // minst en bräda blir spill
+        Assert.Equal(full.BlockHeight.Inches, clamped.BlockHeight.Inches, 6);  // blockhöjden oförändrad
     }
 
     [Fact]
-    public void Clamp_reduces_or_keeps_the_number_of_slice_cuts()
+    public void Clamp_zero_leaves_the_postning_unchanged()
+    {
+        var a = PostningsMax.Compute(9.75);
+        var b = PostningsMax.Compute(9.75, SawConstants.KerfInches, 0);
+        Assert.Equal(a.BlockTwoInchBoards, b.BlockTwoInchBoards);
+        Assert.Equal(a.BlockOneInchBoards, b.BlockOneInchBoards);
+    }
+
+    [Fact]
+    public void Clamp_still_limits_the_bottom_board_in_genomsagning()
     {
         var r = PostningsMax.Compute(13.0);
-        // Gäller alla stilar: block, varv och genom.
-        foreach (var method in new[] { SawMethod.Block180, SawMethod.Varv90, SawMethod.Genomsagning })
-        {
-            int none = SawSequence.Compute(r, method, null, 0).Count(c => c.Face == SawFace.Block);
-            int big = SawSequence.Compute(r, method, null, 5.0).Count(c => c.Face == SawFace.Block);
-            Assert.True(big <= none, $"{method}: klämma ökade antalet snitt");
-        }
+        int none = SawSequence.Compute(r, SawMethod.Genomsagning, null, 0).Count(c => c.Face == SawFace.Block);
+        int big = SawSequence.Compute(r, SawMethod.Genomsagning, null, 5.0).Count(c => c.Face == SawFace.Block);
+        Assert.True(big <= none);
     }
 
     [Fact]

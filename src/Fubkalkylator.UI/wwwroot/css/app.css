@@ -470,11 +470,12 @@ code {
     text-align: start;
 }
 
-/* ---------- Stockklämma-fält i stega-igenom ---------- */
-.stepsaw-clamp { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin: .2rem 0 .6rem; font-size: .9rem; }
-.stepsaw-clamp .value-box.sm { width: 96px; }
-.stepsaw-clamp .value-box.sm input { padding-right: 2.5rem; }
-.stepsaw-clamp .muted { font-size: .8rem; }
+/* ---------- Stockklämma-fält (postningsinput) ---------- */
+.clamp-bar { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 0; font-size: .9rem; }
+.clamp-bar > label { color: var(--muted); }
+.clamp-bar .value-box.sm { width: 96px; }
+.clamp-bar .value-box.sm input { padding-right: 2.5rem; }
+.clamp-bar .muted { font-size: .8rem; }
 
 /* ---------- Order-koppling ---------- */
 .ordermatch .ordermark { min-width: 1.4rem; font-weight: 800; }
