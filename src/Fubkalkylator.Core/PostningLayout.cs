@@ -153,10 +153,11 @@ public static class PostningLayout
 
     /// <summary>
     /// Märgdelning: krymper själva blocket till ett band av HELA reglar centrerat på
-    /// märgen (snitt genom kärnan). Returnerar en justerad postning där blockhöjden =
-    /// bandets höjd — så att sido-/ändbrädor följer med till den nya blockkanten — samt
-    /// bandets bitar re-baserade till 0..H'. Det som faller bort upp/ned lämnar blocket
-    /// (ändregionen behålls oförändrad) och kapas som bark vid första snittet.
+    /// märgen (snitt genom kärnan) och returnerar en justerad postning + bandets bitar
+    /// (re-baserade 0..H'). Blockhöjden minskar, men höjden som frigörs blir MER
+    /// ändutbyte — ändbrädorna räknas om för den lägre blockhöjden med samma formel
+    /// som <see cref="PostningsMax"/> (blir det inte en hel ändbräda till blir resten
+    /// bark). Sidoutbytet är oförändrat (blockbredden ändras inte).
     /// Returnerar null om inte en hel regel får plats centrerad.
     /// </summary>
     public static (PostningResult Result, IReadOnlyList<Piece> Pieces)? CenteredBlock(PostningResult r, double thicknessInches)
@@ -166,15 +167,26 @@ public static class PostningLayout
 
         double top = band[0].Start;
         double newHeight = band[^1].End - top;
-        double removed = r.BlockHeight.Inches - newHeight;   // total marginal (→ bark)
 
         var pieces = new List<Piece>(band.Count);
         foreach (var p in band) pieces.Add(new Piece(p.Start - top, p.End - top, p.Kind));
 
+        // Räkna om ändutbytet för den lägre blockhöjden (samma logik som PostningsMax):
+        // mindre block ⇒ tjockare ändregion ⇒ ev. fler ändbrädor.
+        double fub = r.DiameterUnderBark.Inches;
+        double endThickness = (fub - newHeight - 1.0) / 2.0;
+        int endOne = SawTables.OneInchBoards(endThickness);
+        int endTwo = SawTables.TwoInchBoards(endThickness);
+        double preBlockHeight = newHeight
+            + SawConstants.Slot(1.0, r.KerfInches) * endOne
+            + SawConstants.Slot(2.0, r.KerfInches) * endTwo;
+
         var adjusted = r with
         {
             BlockHeight = newHeight,
-            PreBlockHeight = r.PreBlockHeight.Inches - removed,  // ändregionen behålls, blocket krymper
+            EndOneInchBoards = endOne,
+            EndTwoInchBoards = endTwo,
+            PreBlockHeight = preBlockHeight,
         };
         return (adjusted, pieces);
     }

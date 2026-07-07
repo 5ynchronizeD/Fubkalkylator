@@ -114,9 +114,14 @@ public class SawSequenceTests
         // Bitarna är re-baserade 0..H' och fyller nya blockhöjden.
         Assert.Equal(0.0, pieces[0].Start, 6);
         Assert.Equal(result.BlockHeight.Inches, pieces[^1].End, 6);
-        // Ändregionen (block→bark) är oförändrad — blocket krymper, inte ändbrädorna.
-        Assert.Equal(r.PreBlockHeight.Inches - r.BlockHeight.Inches,
-                     result.PreBlockHeight.Inches - result.BlockHeight.Inches, 6);
+        // Höjden som frigörs blir ändregion, inte spill: ändregionen krymper aldrig,
+        // och sidoutbytet (blockbredden) är oförändrat.
+        Assert.True(result.PreBlockHeight.Inches - result.BlockHeight.Inches
+                    >= r.PreBlockHeight.Inches - r.BlockHeight.Inches - 1e-9);
+        Assert.True(result.EndOneInchBoards + result.EndTwoInchBoards
+                    >= r.EndOneInchBoards + r.EndTwoInchBoards);
+        Assert.Equal(r.BlockWidth.Inches, result.BlockWidth.Inches, 6);
+        Assert.Equal(r.SideTwoInchBoards, result.SideTwoInchBoards);
         // Ett snitt hamnar mitt i (nya) blocket = genom kärnan.
         double c = result.BlockHeight.Inches / 2.0;
         Assert.Contains(pieces, p => Math.Abs(p.End - c) < 1e-6 || Math.Abs(p.Start - c) < 1e-6);
