@@ -137,15 +137,24 @@ public static class SawSequence
     }
 
     // Bara de inre reglarna (block-ytorna finns redan) — för varvsågning.
+    // Vid märgdelning ligger reglarna som ett centrerat band med marginal upp/ned;
+    // då kapas även bandets över- och underkant bort (marginalen = bark).
     private static List<(string, double)> ReglarPlanes(IReadOnlyList<Piece> block, double hh)
     {
         var list = new List<(string, double)>();
+        if (block.Count == 0) return list;
+        if (block[0].Start > 1e-6)                       // marginal upptill → kanta bort
+            list.Add(("Kanta block (topp)", -hh + block[0].Start));
         for (int i = 0; i < block.Count - 1; i++)
             list.Add(($"Delning {i + 1}", -hh + block[i].End));
+        if (block[^1].End < 2 * hh - 1e-6)               // marginal nedtill → kanta bort
+            list.Add(("Kanta block (botten)", -hh + block[^1].End));
         return list;
     }
 
     // Hela blocket skivas uppifrån och ned: bak, ev. ändbräder, alla reglar, ev. undre ändbräder.
+    // Ligger reglarna som ett centrerat band (märgdelning) kapas bandets övermarginal
+    // bort först — mer går bort som bark vid första snittet, men reglarna blir hela.
     private static List<(string, double)> FullSlicePlanes(IReadOnlyList<Piece> block, IReadOnlyList<Piece> end, double hh)
     {
         var list = new List<(string, double)>();
@@ -153,6 +162,8 @@ public static class SawSequence
         list.Add(("Bak (kanta av)", topUpper));
         for (int i = end.Count - 1; i >= 0; i--)
             list.Add(("Ändbräda (topp)", -(hh + end[i].Start)));
+        if (block.Count > 0 && block[0].Start > 1e-6)
+            list.Add(("Kanta block (topp)", -hh + block[0].Start));
         for (int i = 0; i < block.Count; i++)
             list.Add(($"Regel/bräda {i + 1}", -hh + block[i].End));
         for (int i = 0; i < end.Count; i++)

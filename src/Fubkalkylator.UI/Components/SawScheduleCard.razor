@@ -41,7 +41,8 @@
             return BlockPieces;
         var baseBlock = BlockPieces ?? PostningLayout.BlockPieces(Result);
         if (baseBlock.Count == 0) return BlockPieces;
-        return PostningLayout.CenteredBlockPieces(Result.BlockHeight.Inches, baseBlock[0].Thickness, Result.KerfInches);
+        var centered = PostningLayout.CenteredBlockPieces(Result.BlockHeight.Inches, baseBlock[0].Thickness, Result.KerfInches);
+        return centered.Count > 0 ? centered : baseBlock;
     }
 
     private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0");

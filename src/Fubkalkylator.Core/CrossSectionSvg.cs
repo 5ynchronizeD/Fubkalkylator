@@ -56,9 +56,15 @@ public static class CrossSectionSvg
         // Virkesgrupp: klippt mot stockcirkeln
         sb.Append("<g clip-path=\"url(#log)\">");
 
-        // Block-bas
-        sb.Append(CultureInfo.InvariantCulture,
-            $"<rect x=\"{F(-B / 2)}\" y=\"{F(-H / 2)}\" width=\"{F(B)}\" height=\"{F(H)}\" fill=\"#e9cf95\"/>");
+        // Block-bas: bara över reglarnas band (vid märgdelning ligger bandet centrerat
+        // med marginal upp/ned — marginalen är inte block utan kapas bort som bark).
+        if (blockPieces.Count > 0)
+        {
+            double bandTop = -H / 2 + blockPieces[0].Start;
+            double bandH = blockPieces[^1].End - blockPieces[0].Start;
+            sb.Append(CultureInfo.InvariantCulture,
+                $"<rect x=\"{F(-B / 2)}\" y=\"{F(bandTop)}\" width=\"{F(B)}\" height=\"{F(bandH)}\" fill=\"#e9cf95\"/>");
+        }
 
         // Blockets bitar (ordinarie eller egen uppdelning)
         foreach (var p in blockPieces)
@@ -148,7 +154,13 @@ public static class CrossSectionSvg
         sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(barkR)}\" fill=\"#5b3a21\"/>");
         sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(woodR)}\" fill=\"url(#wood)\" stroke=\"#c9a86a\" stroke-width=\"1\" vector-effect=\"non-scaling-stroke\"/>");
         sb.Append("<g clip-path=\"url(#log)\">");
-        sb.Append(CultureInfo.InvariantCulture, $"<rect x=\"{F(-bh)}\" y=\"{F(-hh)}\" width=\"{F(B)}\" height=\"{F(H)}\" fill=\"#e9cf95\"/>");
+        if (blockList.Count > 0)
+        {
+            // Block-bas bara över reglarnas band (märgdelning: marginalen kapas som bark).
+            double bandTop = -hh + blockList[0].Start;
+            double bandH = blockList[^1].End - blockList[0].Start;
+            sb.Append(CultureInfo.InvariantCulture, $"<rect x=\"{F(-bh)}\" y=\"{F(bandTop)}\" width=\"{F(B)}\" height=\"{F(bandH)}\" fill=\"#e9cf95\"/>");
+        }
         foreach (var p in blockList)
             Rect(sb, -bh, -hh + p.Start, B, p.Thickness, Fill(p.Kind));
         for (int i = 0; i < side.Count; i++)

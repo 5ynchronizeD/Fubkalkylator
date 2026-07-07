@@ -123,28 +123,31 @@ public static class PostningLayout
     }
 
     /// <summary>
-    /// Blockuppdelning för märgdelning: likadana reglar lagda symmetriskt kring
-    /// märgen så att en snittgräns hamnar i blockets centrum (H/2). Kantbitarna
-    /// kan bli tunnare. Snittet genom kärnan hamnar då mellan två reglar.
+    /// Blockuppdelning för märgdelning: enbart HELA likadana reglar lagda symmetriskt
+    /// kring märgen, med en snittgräns rakt i centrum (H/2) — snittet går alltså genom
+    /// kärnan mellan de två mittersta reglarna. Inga tunna kantbitar: det som blir över
+    /// vid över-/underkant lämnas utanför bandet och kapas bort som bark vid första
+    /// snittet. Bitarna mäts 0..H från blockets ovankant; bandet ligger centrerat med
+    /// lika stor marginal upptill och nedtill.
     /// </summary>
     public static IReadOnlyList<Piece> CenteredBlockPieces(double blockHeightInches, double thicknessInches, double kerfInches)
     {
-        double H = blockHeightInches;
-        if (thicknessInches <= 0 || H <= 0) return Array.Empty<Piece>();
+        double H = blockHeightInches, t = thicknessInches;
+        if (t <= 0 || H <= 0 || t > H) return Array.Empty<Piece>();
 
-        double step = thicknessInches + kerfInches;
         double c = H / 2.0;                    // märgen, från blockets ovankant
-        var bounds = new List<double> { 0, H, c };
-        for (double b = c + step; b < H - 1e-9; b += step) bounds.Add(b);
-        for (double b = c - step; b > 1e-9; b -= step) bounds.Add(b);
-        bounds.Sort();
-
+        double step = t + kerfInches;          // regel + sågspår
+        var kind = KindForThickness(t);
         var pieces = new List<Piece>();
-        for (int i = 0; i < bounds.Count - 1; i++)
-        {
-            double s = bounds[i], e = bounds[i + 1];
-            if (e - s > 1e-6) pieces.Add(new Piece(s, e, KindForThickness(e - s)));
-        }
+
+        // Reglar nedåt från märgen: [c, c+t], [c+t+spår, …] — så länge hela reglar ryms.
+        for (double s = c; s + t <= H + 1e-9; s += step)
+            pieces.Add(new Piece(s, s + t, kind));
+        // Reglar uppåt från märgen: [c−t, c], [c−t−spår−t, …].
+        for (double e = c; e - t >= -1e-9; e -= step)
+            pieces.Add(new Piece(e - t, e, kind));
+
+        pieces.Sort((a, b) => a.Start.CompareTo(b.Start));
         return pieces;
     }
 

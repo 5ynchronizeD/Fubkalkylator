@@ -102,6 +102,24 @@ public class SawSequenceTests
     }
 
     [Fact]
+    public void Centered_block_uses_only_whole_reglar_with_equal_margins()
+    {
+        var r = PostningsMax.Compute(9.75);
+        double H = r.BlockHeight.Inches, t = 2.0;
+        var centered = PostningLayout.CenteredBlockPieces(H, t, r.KerfInches);
+
+        Assert.NotEmpty(centered);
+        // Enbart hela reglar — inga tunna kantbitar.
+        Assert.All(centered, p => Assert.Equal(t, p.Thickness, 6));
+        // Bandet är centrerat: lika stor marginal upptill som nedtill.
+        double topMargin = centered[0].Start;
+        double bottomMargin = H - centered[^1].End;
+        Assert.Equal(topMargin, bottomMargin, 6);
+        // Marginalen ligger inuti blocket (kapas som bark), inte utanför.
+        Assert.True(topMargin >= -1e-9);
+    }
+
+    [Fact]
     public void Slice_phase_never_rotates_between_cuts()
     {
         // "Man kapar alla från samma sida blocket är framme" — delningen/skivningen
