@@ -117,8 +117,8 @@ public static class SawSequence
         // Block-/varvsågningens klämma hanteras redan i postningen (färre blockbrädor);
         // här skivas de brädor som faktiskt går att såga.
         var slice = method == SawMethod.Varv90
-            ? ReglarPlanes(block, hh)              // ändbräder redan tagna som sidor
-            : FullSlicePlanes(block, end, hh);     // svälj ändbräder i skivningen
+            ? ReglarPlanes(block, hh)                       // ändbräder redan tagna som sidor
+            : FullSlicePlanes(block, end, hh, r.EndSides);  // svälj ändbräder i skivningen
         double? prevY = null;
         foreach (var (label, y) in slice)
         {
@@ -157,7 +157,7 @@ public static class SawSequence
     // Hela blocket skivas uppifrån och ned: bak, ev. ändbräder, alla reglar, ev. undre ändbräder.
     // Ligger reglarna som ett centrerat band (märgdelning) kapas bandets övermarginal
     // bort först — mer går bort som bark vid första snittet, men reglarna blir hela.
-    private static List<(string, double)> FullSlicePlanes(IReadOnlyList<Piece> block, IReadOnlyList<Piece> end, double hh)
+    private static List<(string, double)> FullSlicePlanes(IReadOnlyList<Piece> block, IReadOnlyList<Piece> end, double hh, int endSides)
     {
         var list = new List<(string, double)>();
         double topUpper = end.Count > 0 ? -(hh + end[^1].End) : -hh;
@@ -168,8 +168,10 @@ public static class SawSequence
             list.Add(("Kanta block (topp)", -hh + block[0].Start));
         for (int i = 0; i < block.Count; i++)
             list.Add(($"Regel/bräda {i + 1}", -hh + block[i].End));
-        for (int i = 0; i < end.Count; i++)
-            list.Add(("Ändbräda (botten)", hh + end[i].End));
+        // Botten ger ändbräder bara om den änden squaras (annars barkbädd för klämman).
+        if (endSides == 2)
+            for (int i = 0; i < end.Count; i++)
+                list.Add(("Ändbräda (botten)", hh + end[i].End));
         return list;
     }
 

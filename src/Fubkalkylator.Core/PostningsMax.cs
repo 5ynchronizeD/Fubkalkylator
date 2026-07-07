@@ -41,6 +41,12 @@ public sealed record PostningResult
 
     /// <summary>Sågspåret (tum) som använts i beräkningen.</summary>
     public required double KerfInches { get; init; }
+
+    /// <summary>
+    /// Antal ändar (topp/botten) som ger ändbräder. 2 = symmetriskt (standard).
+    /// 1 = bara toppen ger utbyte; botten är barkbädd för stockklämman.
+    /// </summary>
+    public int EndSides { get; init; } = 2;
 }
 
 /// <summary>
@@ -91,10 +97,23 @@ public static class PostningsMax
         double endThickness = (fub - blockHeight - 1.0) / 2.0;   // Data!B3
         double sideThickness = (fub - blockWidth - 1.0) / 2.0;   // Data!B4
 
-        int endOne = SawTables.OneInchBoards(endThickness);      // C13
+        int endOne = SawTables.OneInchBoards(endThickness);      // C13 (totalt båda ändar)
         int endTwo = SawTables.TwoInchBoards(endThickness);      // C14
         int sideOne = SawTables.OneInchBoards(sideThickness);    // C15
         int sideTwo = SawTables.TwoInchBoards(sideThickness);    // C16
+
+        // Bottensidan är barkbädd för klämman (blocksågning): den ger ändutbyte bara om
+        // en hel ändbräda ryms ovanför klämm-bädden (barken under ändregionen ≥ klämman).
+        // Annars ger bara toppen ände-utbyte (halva). Klämma = 0 ⇒ symmetriskt som förut.
+        int endSides = 2;
+        if (clampInches > 0 && (endOne + endTwo) > 0)
+        {
+            bool bottomFits = barkBelowBlock - endThickness >= clampInches - 1e-9;
+            if (!bottomFits) endSides = 1;
+        }
+        int perEndOne = endOne / 2, perEndTwo = endTwo / 2;
+        endOne = perEndOne * endSides;
+        endTwo = perEndTwo * endSides;
 
         // Förblock: block plus brädorna som sitter kvar utanpå (med sågspår).
         double oneSlot = SawConstants.Slot(1.0, kerfInches);
@@ -118,6 +137,7 @@ public static class PostningsMax
             PreBlockWidth = preBlockWidth,
             PreBlockHeight = preBlockHeight,
             KerfInches = kerfInches,
+            EndSides = endSides,
         };
     }
 

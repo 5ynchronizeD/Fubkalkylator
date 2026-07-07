@@ -77,11 +77,12 @@ public static class CrossSectionSvg
             Rect(sb, B / 2 + p.Start, -H / 2, p.Thickness, H, Fill(p.Kind));
         }
 
-        // Ändbrädor (topp + botten)
+        // Ändbrädor: alltid toppen; botten bara om den änden ger utbyte (annars barkbädd).
         foreach (var p in PostningLayout.EndPiecesPerSide(r))
         {
             Rect(sb, -B / 2, -H / 2 - p.End, B, p.Thickness, Fill(p.Kind));
-            Rect(sb, -B / 2, H / 2 + p.Start, B, p.Thickness, Fill(p.Kind));
+            if (r.EndSides == 2)
+                Rect(sb, -B / 2, H / 2 + p.Start, B, p.Thickness, Fill(p.Kind));
         }
 
         // Förblockets kontur (streckad sågsekvens)
@@ -173,7 +174,8 @@ public static class CrossSectionSvg
         {
             var p = end[i];
             Rect(sb, -bh, -hh - p.End, B, p.Thickness, Fill(p.Kind));
-            Rect(sb, -bh, hh + p.Start, B, p.Thickness, Fill(p.Kind));
+            if (r.EndSides == 2)
+                Rect(sb, -bh, hh + p.Start, B, p.Thickness, Fill(p.Kind));
         }
         sb.Append("</g></g>"); // klart: virke + formklipp
 

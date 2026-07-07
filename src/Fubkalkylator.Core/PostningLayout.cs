@@ -63,9 +63,9 @@ public static class PostningLayout
     public static IReadOnlyList<Piece> SidePiecesPerSide(PostningResult r)
         => OuterRegionPieces(r.SideTwoInchBoards / 2, r.SideOneInchBoards / 2, r.KerfInches);
 
-    /// <summary>Ändbrädorna på EN ände (halva totala antalet), placerade utåt från blockkanten.</summary>
+    /// <summary>Ändbrädorna på EN ände (totala antalet delat på antal ändar), utåt från blockkanten.</summary>
     public static IReadOnlyList<Piece> EndPiecesPerSide(PostningResult r)
-        => OuterRegionPieces(r.EndTwoInchBoards / 2, r.EndOneInchBoards / 2, r.KerfInches);
+        => OuterRegionPieces(r.EndTwoInchBoards / r.EndSides, r.EndOneInchBoards / r.EndSides, r.KerfInches);
 
     private static IReadOnlyList<Piece> OuterRegionPieces(int twoInch, int oneInch, double kerf)
     {

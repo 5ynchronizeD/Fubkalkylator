@@ -208,6 +208,27 @@ public class SawSequenceTests
     }
 
     [Fact]
+    public void Bottom_end_yields_nothing_when_it_is_the_clamp_bark_bed()
+    {
+        // Hitta en stock som ger ändbräder och verifiera att en stor klämma gör att
+        // bara toppen ger ände-utbyte (botten = barkbädd).
+        for (double fub = 10; fub <= 20; fub += 0.25)
+        {
+            var full = PostningsMax.Compute(fub);
+            if (full.EndOneInchBoards + full.EndTwoInchBoards == 0) continue;
+            Assert.Equal(2, full.EndSides);   // utan klämma: symmetriskt
+
+            var clamped = PostningsMax.Compute(fub, SawConstants.KerfInches, 5.0);
+            if (clamped.EndSides != 1) continue;   // klämman nådde inte ändregionen här
+
+            Assert.Equal(full.EndTwoInchBoards / 2, clamped.EndTwoInchBoards);   // bara toppen
+            Assert.Equal(full.EndOneInchBoards / 2, clamped.EndOneInchBoards);
+            return;   // hittade och verifierade ett fall
+        }
+        Assert.Fail("hittade ingen stock med ändbräder att testa klämman på");
+    }
+
+    [Fact]
     public void Clamp_within_bark_leaves_all_block_boards()
     {
         // Liten klämma som ryms i barken under blocket → inga blockbrädor offras.
