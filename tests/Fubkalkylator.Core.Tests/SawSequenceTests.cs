@@ -192,15 +192,17 @@ public class SawSequenceTests
     }
 
     [Fact]
-    public void Clamp_drops_block_boards_that_cannot_be_sawn()
+    public void Clamp_sacrifices_the_least_wood_to_reach_the_clamp()
     {
-        // 9.75" ger block 7,75" med 3×2" + 1×1" (understa = 1" = 25 mm).
+        // 9.75" ger block 7,75" med 3×2" + 1×1".
         var full = PostningsMax.Compute(9.75);
-        var clamped = PostningsMax.Compute(9.75, SawConstants.KerfInches, 1.6);   // ~40 mm klämma
+        Assert.Equal(3, full.BlockTwoInchBoards);
+        Assert.Equal(1, full.BlockOneInchBoards);
 
-        int fullBoards = full.BlockOneInchBoards + full.BlockTwoInchBoards;
-        int clampedBoards = clamped.BlockOneInchBoards + clamped.BlockTwoInchBoards;
-        Assert.True(clampedBoards < fullBoards);                       // minst en bräda blir spill
+        // ~40 mm klämma: minsta botten ≥ klämman är EN 2"a (50,8 mm), inte 1"+2".
+        var clamped = PostningsMax.Compute(9.75, SawConstants.KerfInches, 1.6);
+        Assert.Equal(2, clamped.BlockTwoInchBoards);   // en 2"a offras
+        Assert.Equal(1, clamped.BlockOneInchBoards);   // 1"an behålls (optimerat)
         Assert.Equal(full.BlockHeight.Inches, clamped.BlockHeight.Inches, 6);  // blockhöjden oförändrad
     }
 

@@ -119,26 +119,25 @@ public static class PostningsMax
         };
     }
 
-    // Kapar bort de understa blockbrädorna (först 1", sedan 2") så att det som blir
-    // kvar mot bädden (spill) är minst klämman — man kan inte såga en bräda som lämnar
-    // mindre än klämman kvar under bladet. Returnerar hur många 2" och 1" som blir kvar.
+    // Stockklämma, optimerat: det som ligger mot bädden (spill) måste vara minst
+    // klämman och går inte att såga. Vi OFFRAR så lite virke som möjligt — den minsta
+    // kombination av brädor (a st 1" + b st 2") vars sammanhängande botten når klämman —
+    // och lägger den underst. Resten sågas som vanligt. Returnerar kvarvarande 2"/1".
     private static (int Two, int One) ClampBlockBoards(int n2, int n1, double height, double kerf, double clamp)
     {
-        // Brädtjocklekar uppifrån och ned: n2 st 2", sedan n1 st 1".
-        int count = n2 + n1;
-        double pos = 0;
-        int keep = 0;
-        for (int i = 0; i < count; i++)
-        {
-            double t = i < n2 ? 2.0 : 1.0;
-            double end = pos + t;
-            // Kan brädan kapas? Dess undersnitt måste lämna minst klämman kvar.
-            if (end > height - clamp + 1e-9) break;
-            keep = i + 1;
-            pos = end + kerf;
-        }
-        int two = Math.Min(keep, n2);
-        int one = Math.Max(0, keep - n2);
-        return (two, one);
+        double bestSpill = double.PositiveInfinity;
+        int bestTwo = -1, bestOne = -1;
+        for (int b = 0; b <= n2; b++)
+            for (int a = 0; a <= n1; a++)
+            {
+                int cnt = a + b;
+                if (cnt == 0) continue;
+                // Sammanhängande, osågad botten: brädorna + spåren mellan dem.
+                double spill = a * 1.0 + b * 2.0 + (cnt - 1) * kerf;
+                if (spill + 1e-9 < clamp) continue;             // når inte upp till klämman
+                if (spill < bestSpill - 1e-9) { bestSpill = spill; bestTwo = b; bestOne = a; }
+            }
+        if (bestTwo < 0) return (0, 0);                         // hela blocket < klämman → allt spill
+        return (n2 - bestTwo, n1 - bestOne);
     }
 }
