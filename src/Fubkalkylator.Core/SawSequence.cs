@@ -42,7 +42,7 @@ public sealed record SawCut
 public static class SawSequence
 {
     public static IReadOnlyList<SawCut> Compute(PostningResult r, SawMethod method = SawMethod.Block180,
-        IReadOnlyList<Piece>? blockPieces = null)
+        IReadOnlyList<Piece>? blockPieces = null, double clampInches = 0)
     {
         double bh = r.BlockWidth.Inches / 2.0, hh = r.BlockHeight.Inches / 2.0;
         var side = PostningLayout.SidePiecesPerSide(r);
@@ -58,7 +58,7 @@ public static class SawSequence
             var gcuts = new List<SawCut>();
             int gn = 1;
             double? gPrev = null;
-            foreach (var (label, y) in GenomPlanes(woodR, t, r.KerfInches))
+            foreach (var (label, y) in ClampBottom(GenomPlanes(woodR, t, r.KerfInches), clampInches))
             {
                 gcuts.Add(new SawCut
                 {
@@ -115,8 +115,8 @@ public static class SawSequence
         // Skivfas: block upprätt, EN orientering, uppifrån och ned (ingen vändning).
         rot += ShortestDelta(prevAngle, FaceAngle(SawFace.Block));
         var slice = method == SawMethod.Varv90
-            ? ReglarPlanes(block, hh)              // ändbräder redan tagna som sidor
-            : FullSlicePlanes(block, end, hh);     // svälj ändbräder i skivningen
+            ? ReglarPlanes(block, hh)                            // ändbräder redan tagna som sidor
+            : ClampBottom(FullSlicePlanes(block, end, hh), clampInches); // svälj ändbräder + klämma
         double? prevY = null;
         foreach (var (label, y) in slice)
         {
@@ -219,6 +219,18 @@ public static class SawSequence
         return list;
     }
 
+    // Stockklämma: den nedersta brädan (mot bädden/klämman) kan inte bli tunnare än
+    // klämmans höjd — bladet tar då i klämman. Snittplanen är sorterade uppifrån och ned;
+    // det sista planet är materialets underkant. Är bottenbrädan (mellan de två understa
+    // planen) för tunn tas snittet ovanför bort, så bottenbrädan blir tjockare.
+    private static List<(string, double)> ClampBottom(List<(string, double)> planes, double clampInches)
+    {
+        if (clampInches <= 0) return planes;
+        while (planes.Count >= 2 && planes[^1].Item2 - planes[^2].Item2 < clampInches - 1e-9)
+            planes.RemoveAt(planes.Count - 2);   // slå ihop bottenbrädan uppåt
+        return planes;
+    }
+
     // Kortaste vinkeländring a→b, i intervallet (−180, 180].
     private static double ShortestDelta(double a, double b) => ((b - a + 540) % 360) - 180;
 
@@ -229,10 +241,10 @@ public static class SawSequence
     /// topphöjning aktuell. Hel stock (0 snitt) räknas som bark nedåt.
     /// </summary>
     public static bool IsBarkDown(PostningResult r, int completedCuts, SawMethod method = SawMethod.Block180,
-        IReadOnlyList<Piece>? blockPieces = null)
+        IReadOnlyList<Piece>? blockPieces = null, double clampInches = 0)
     {
         if (completedCuts <= 0) return true;                  // hel stock — bark runt om
-        var cuts = Compute(r, method, blockPieces);
+        var cuts = Compute(r, method, blockPieces, clampInches);
         if (cuts.Count == 0) return true;
 
         double angle = cuts[Math.Min(completedCuts, cuts.Count) - 1].RotationDegrees;

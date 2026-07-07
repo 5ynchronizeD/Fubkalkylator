@@ -25,6 +25,9 @@ public class SawSettings
     /// <summary>Märgdelning: lägg ett snitt genom kärnan (block-/varvsågning).</summary>
     public bool CenterCutThroughPith { get; set; }
 
+    /// <summary>Stockklämmans höjd i mm — sätter minsta möjliga bottenbräda. 0 = ingen gräns.</summary>
+    public double ClampHeightMm { get; set; }
+
     /// <summary>Aktuell prislista utifrån inställningarna.</summary>
     public PriceList Prices => new()
     {

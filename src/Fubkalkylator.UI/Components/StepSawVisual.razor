@@ -21,6 +21,14 @@
                    disabled="@(Saw.SawMethod == SawMethod.Genomsagning)" />
             Snitt genom kärnan (märgdelning)
         </label>
+        <label class="stepsaw-clamp">
+            Stockklämma
+            <span class="value-box sm">
+                <input type="number" step="1" min="0" max="200" @bind="Clamp" @bind:event="onchange" />
+                <span class="unit">mm</span>
+            </span>
+            <span class="muted">minsta bottenbräda (0 = ingen)</span>
+        </label>
 
         <div class="stepsaw-stage">
             <div class="stepsaw-rot" style="transform: rotate(@Deg(Angle)deg);">
@@ -107,6 +115,13 @@
             Saw.CenterCutThroughPith = cp == "1";
             changed = true;
         }
+        var cl = await JS.InvokeAsync<string?>("appStore.get", "clampMm");
+        if (double.TryParse(cl, NumberStyles.Any, CultureInfo.InvariantCulture, out var clamp)
+            && clamp >= 0 && clamp <= 200 && Math.Abs(clamp - Saw.ClampHeightMm) > 1e-9)
+        {
+            Saw.ClampHeightMm = clamp;
+            changed = true;
+        }
         if (changed)
         {
             Recompute();
@@ -114,11 +129,13 @@
         }
     }
 
+    private double ClampInches => Saw.ClampHeightMm / SawConstants.MmPerInch;
+
     // Räknar om effektiv postning, block och snittordning.
     private void Recompute()
     {
         ComputeEffective();
-        cuts = EffR is null ? Array.Empty<SawCut>() : SawSequence.Compute(EffR, Saw.SawMethod, EffPieces);
+        cuts = EffR is null ? Array.Empty<SawCut>() : SawSequence.Compute(EffR, Saw.SawMethod, EffPieces, ClampInches);
         if (step > cuts.Count) step = cuts.Count;
     }
 
@@ -140,7 +157,7 @@
     private double Angle => step == 0 ? 0 : cuts[step - 1].RotationDegrees;
 
     // Bark nedåt just nu? (rund sida vilar mot bädden → topphöjning aktuell)
-    private bool BarkDownNow => EffR is not null && SawSequence.IsBarkDown(EffR, step, Saw.SawMethod, EffPieces);
+    private bool BarkDownNow => EffR is not null && SawSequence.IsBarkDown(EffR, step, Saw.SawMethod, EffPieces, ClampInches);
 
     private async Task Next() { if (step < cuts.Count) { step++; await RotateThenReveal(); } }
     private async Task Prev() { if (step > 0) { step--; await RotateThenReveal(); } }
@@ -164,6 +181,19 @@
         {
             Saw.CenterCutThroughPith = value;
             _ = JS.InvokeVoidAsync("appStore.set", "centerPith", value ? "1" : "0");
+            step = 0;
+            revealCut = true;
+            Recompute();
+        }
+    }
+
+    private double Clamp
+    {
+        get => Saw.ClampHeightMm;
+        set
+        {
+            Saw.ClampHeightMm = Math.Max(0, value);
+            _ = JS.InvokeVoidAsync("appStore.set", "clampMm", Saw.ClampHeightMm.ToString(CultureInfo.InvariantCulture));
             step = 0;
             revealCut = true;
             Recompute();

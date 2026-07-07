@@ -38,7 +38,7 @@
         {
             if (Result is null) return Array.Empty<SawCut>();
             var (effR, effPieces) = Effective();
-            return SawSequence.Compute(effR, Saw.SawMethod, effPieces);
+            return SawSequence.Compute(effR, Saw.SawMethod, effPieces, Saw.ClampHeightMm / SawConstants.MmPerInch);
         }
     }
 
