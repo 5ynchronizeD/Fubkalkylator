@@ -78,12 +78,14 @@ public static class PostningsMax
         BlockRow block = SawTables.SnapBlockHeight(rawHeight, kerfInches);
         double blockHeight = block.HeightInches;
 
-        // Stockklämma: den nedersta biten mot bädden kan inte sågas tunnare än klämman.
-        // Brädorna staplas 2" (topp) → 1" (botten); de understa som skulle lämna mindre
-        // än klämman kvar går inte att kapa och blir spill. Blockhöjden är oförändrad.
+        // Stockklämma: den sista biten mot bädden — INKLUSIVE den runda barken under
+        // blocket — får inte vara lägre än klämman. Barken under blocket räcker ofta en
+        // bit; bara om den inte når klämman offras de understa blockbrädorna (minsta möjliga).
+        double barkRadius = (fub / 2.0) * ApteringsMax.BarkFactor;
+        double barkBelowBlock = barkRadius - blockHeight / 2.0;   // rund bark ned till bädden
         int blockTwo = block.TwoInchCount, blockOne = block.OneInchCount;
         if (clampInches > 0)
-            (blockTwo, blockOne) = ClampBlockBoards(blockTwo, blockOne, blockHeight, kerfInches, clampInches);
+            (blockTwo, blockOne) = ClampBlockBoards(blockTwo, blockOne, kerfInches, clampInches, barkBelowBlock);
 
         // Tjocklek på tillgängligt virke för änd-/sidobrädor (Data!B3 / B4).
         double endThickness = (fub - blockHeight - 1.0) / 2.0;   // Data!B3
@@ -119,12 +121,16 @@ public static class PostningsMax
         };
     }
 
-    // Stockklämma, optimerat: det som ligger mot bädden (spill) måste vara minst
-    // klämman och går inte att såga. Vi OFFRAR så lite virke som möjligt — den minsta
-    // kombination av brädor (a st 1" + b st 2") vars sammanhängande botten når klämman —
-    // och lägger den underst. Resten sågas som vanligt. Returnerar kvarvarande 2"/1".
-    private static (int Two, int One) ClampBlockBoards(int n2, int n1, double height, double kerf, double clamp)
+    // Stockklämma, optimerat: den sista biten mot bädden (inkl. barken under blocket)
+    // måste nå klämman. Barken bidrar med <paramref name="barkBelowBlock"/>; bara det
+    // som saknas upp till klämman behöver tas från blockbrädorna. Vi offrar minsta möjliga
+    // virke — den minsta kombination av brädor vars botten fyller resten — och lägger den
+    // underst. Returnerar kvarvarande 2"/1".
+    private static (int Two, int One) ClampBlockBoards(int n2, int n1, double kerf, double clamp, double barkBelowBlock)
     {
+        double needed = clamp - barkBelowBlock;
+        if (needed <= 1e-9) return (n2, n1);                    // barken räcker som bädd
+
         double bestSpill = double.PositiveInfinity;
         int bestTwo = -1, bestOne = -1;
         for (int b = 0; b <= n2; b++)
@@ -132,12 +138,12 @@ public static class PostningsMax
             {
                 int cnt = a + b;
                 if (cnt == 0) continue;
-                // Sammanhängande, osågad botten: brädorna + spåren mellan dem.
-                double spill = a * 1.0 + b * 2.0 + (cnt - 1) * kerf;
-                if (spill + 1e-9 < clamp) continue;             // når inte upp till klämman
-                if (spill < bestSpill - 1e-9) { bestSpill = spill; bestTwo = b; bestOne = a; }
+                // Sammanhängande, osågad botten av blocket: brädorna + spåren mellan dem.
+                double span = a * 1.0 + b * 2.0 + (cnt - 1) * kerf;
+                if (span + 1e-9 < needed) continue;             // + barken räcker inte till klämman
+                if (span < bestSpill - 1e-9) { bestSpill = span; bestTwo = b; bestOne = a; }
             }
-        if (bestTwo < 0) return (0, 0);                         // hela blocket < klämman → allt spill
+        if (bestTwo < 0) return (0, 0);                         // ens hela blocket + bark < klämman
         return (n2 - bestTwo, n1 - bestOne);
     }
 }
