@@ -1,0 +1,93 @@
+@inject IJSRuntime JS
+@using System.Globalization
+@using System.Text.Json
+@using Fubkalkylator.Core
+
+@if (Items is { Count: > 0 })
+{
+    <div class="card ordermatch">
+        <div class="card-title">Order-koppling</div>
+        @if (!hasOrder)
+        {
+            <p class="hint">Ingen orderlista sparad än — lägg in rader under
+                <a href="order">Orderlista</a> så visas här om måtten matchar.</p>
+        }
+        else
+        {
+            <ul class="mat">
+                @foreach (var it in Items)
+                {
+                    var m = Match(it);
+                    <li class="@(m.Ok ? "hi" : null)">
+                        <span class="q ordermark @(m.Ok ? "ok" : "no")">@(m.Ok ? "✓" : "✗")</span>
+                        <span class="d">
+                            @Fmt(it)
+                            @if (m.Ok)
+                            {
+                                <text>— finns i orderlistan (@m.Qty st beställda)</text>
+                            }
+                            else
+                            {
+                                <text>— ingen orderrad matchar</text>
+                            }
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Dimensionerna (tjocklek × bredd) postningen ger, som ska stämmas av mot ordern.</summary>
+    [Parameter] public IReadOnlyList<BoardDim>? Items { get; set; }
+
+    /// <summary>En dimension att kontrollera, i mm.</summary>
+    public readonly record struct BoardDim(double ThicknessMm, double WidthMm);
+
+    private const double TolMm = 3.0;   // tum↔mm ger små avrundningsskillnader
+
+    private List<OrderRowDto> rows = new();
+    private bool hasOrder;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var s = await JS.InvokeAsync<string?>("appStore.get", "orderRows");
+        if (!string.IsNullOrEmpty(s))
+        {
+            try
+            {
+                var loaded = JsonSerializer.Deserialize<List<OrderRowDto>>(s);
+                if (loaded is not null) rows = loaded;
+            }
+            catch { /* ignorera trasig cache */ }
+        }
+        hasOrder = rows.Count > 0;
+        StateHasChanged();
+    }
+
+    private (bool Ok, int Qty) Match(BoardDim d)
+    {
+        bool ok = false; int qty = 0;
+        foreach (var r in rows)
+        {
+            // Bräddimension är orienteringsoberoende: 45×95 = 95×45.
+            bool same = (Near(r.ThickMm, d.ThicknessMm) && Near(r.WidthMm, d.WidthMm))
+                     || (Near(r.ThickMm, d.WidthMm) && Near(r.WidthMm, d.ThicknessMm));
+            if (same) { ok = true; qty += r.Qty; }
+        }
+        return (ok, qty);
+    }
+
+    private static bool Near(double a, double b) => Math.Abs(a - b) <= TolMm;
+    private static string Fmt(BoardDim d) => $"{d.ThicknessMm:0} × {d.WidthMm:0} mm";
+
+    private sealed class OrderRowDto
+    {
+        public double ThickMm { get; set; }
+        public double WidthMm { get; set; }
+        public double LengthMm { get; set; }
+        public int Qty { get; set; }
+    }
+}

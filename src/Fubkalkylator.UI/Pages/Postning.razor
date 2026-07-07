@@ -81,6 +81,8 @@
                 </table>
             </details>
 
+            <OrderMatch Items="ProducedDims(result)" />
+
             <VolumeValueCard Result="result" OnEconomyChanged="e => economy = e" />
 
             <SawScheduleCard Result="result" />
@@ -144,6 +146,19 @@
             result = null;
             error = ex.Message.Split('(')[0].Trim();
         }
+    }
+
+    // Distinkta dimensioner (tjocklek × bredd, mm) postningen ger — för order-koppling.
+    private static IReadOnlyList<OrderMatch.BoardDim> ProducedDims(PostningResult r)
+    {
+        double mm = SawConstants.MmPerInch;
+        double bw = r.BlockWidth.Inches * mm, bh = r.BlockHeight.Inches * mm;
+        var list = new List<OrderMatch.BoardDim>();
+        if (r.BlockTwoInchBoards + r.EndTwoInchBoards > 0) list.Add(new(2 * mm, bw));
+        if (r.BlockOneInchBoards + r.EndOneInchBoards > 0) list.Add(new(1 * mm, bw));
+        if (r.SideTwoInchBoards > 0) list.Add(new(2 * mm, bh));
+        if (r.SideOneInchBoards > 0) list.Add(new(1 * mm, bh));
+        return list;
     }
 
     private static IEnumerable<(int Count, string Label)> Materials(PostningResult r)

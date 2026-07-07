@@ -470,6 +470,12 @@ code {
     text-align: start;
 }
 
+/* ---------- Order-koppling ---------- */
+.ordermatch .ordermark { min-width: 1.4rem; font-weight: 800; }
+.ordermatch .ordermark.ok { color: var(--leaf); }
+.ordermatch .ordermark.no { color: #b06a2c; opacity: .7; }
+[data-theme="dark"] .ordermatch .ordermark.no { color: #cc8a52; }
+
 /* ---------- Topphöjning (toppningsbräda) ---------- */
 .toeboard-remind {
     display: flex; gap: .6rem; align-items: flex-start;

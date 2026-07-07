@@ -94,6 +94,7 @@ else if (mode == Mode.MyStock)
         </div>
         @ResultGrid(fit.Postning, fit.BlockPieces, fit.PieceCount, false, DimFor(FitWidth),
                     PostningMetrics.YieldPercent(fit.Postning, fit.PieceCount * thickness * FitWidth))
+        <OrderMatch Items="SingleDim(thickness, FitWidth)" />
         <SaveJobForm StockFub="fit.Postning.DiameterUnderBark.Inches" Kerf="fit.Postning.KerfInches"
                      TargetThickness="thickness" TargetWidth="FitWidth"
                      BlockWidth="fit.Postning.BlockWidth.Inches" BlockHeight="fit.Postning.BlockHeight.Inches"
@@ -160,6 +161,7 @@ else if (result is not null)
         }
     </div>
     @ResultGrid(result.Postning, result.BlockPieces, result.TargetPieceCount, false, Dim, ResultYield)
+    <OrderMatch Items="SingleDim(thickness, width)" />
     <SaveJobForm StockFub="result.Postning.DiameterUnderBark.Inches" Kerf="result.Postning.KerfInches"
                  TargetThickness="thickness" TargetWidth="width"
                  BlockWidth="result.Postning.BlockWidth.Inches" BlockHeight="result.Postning.BlockHeight.Inches"
@@ -283,6 +285,13 @@ else
 
     private static IReadOnlyList<Piece> WholeBlock(PostningResult r)
         => new[] { new Piece(0, r.BlockHeight.Inches, BoardKind.Target) };
+
+    // Måldimensionen (tjocklek × bredd, mm) för order-kopplingen.
+    private static IReadOnlyList<OrderMatch.BoardDim> SingleDim(double thicknessInches, double widthInches)
+    {
+        double mm = SawConstants.MmPerInch;
+        return new[] { new OrderMatch.BoardDim(thicknessInches * mm, widthInches * mm) };
+    }
 
     private static IEnumerable<(int Count, string Label)> ByProducts(PostningResult r)
     {

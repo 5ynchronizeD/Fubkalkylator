@@ -33,4 +33,20 @@ public class PostningLayoutTests
     [Fact]
     public void Reference_case_has_no_end_boards()
         => Assert.Empty(PostningLayout.EndPiecesPerSide(Ref));
+
+    [Fact]
+    public void Side_board_butts_the_block_spill_goes_to_the_bark()
+    {
+        // Ett grövre fall som ger en sidobräda att titta på.
+        var r = PostningsMax.Compute(13.0);
+        var pieces = PostningLayout.SidePiecesPerSide(r);
+        Assert.NotEmpty(pieces);
+
+        // Innersta brädan ligger dikt an mot blocket (inget spill inåt).
+        Assert.Equal(0.0, pieces[0].Start, 6);
+
+        // Ev. rest ligger ytterst (mot barken): sista brädans ytterkant ≤ regionen.
+        double region = PostningLayout.SideRegionWidth(r);
+        Assert.True(pieces[^1].End <= region + 1e-9);
+    }
 }
