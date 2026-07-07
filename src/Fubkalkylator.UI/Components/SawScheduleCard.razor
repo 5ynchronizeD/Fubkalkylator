@@ -32,17 +32,25 @@
     /// <summary>Blockets uppdelning (t.ex. måldimension). Null = blockets standardsnitt (1"/2").</summary>
     [Parameter] public IReadOnlyList<Piece>? BlockPieces { get; set; }
 
-    private IReadOnlyList<SawCut> Cuts =>
-        Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, EffectiveBlock());
+    private IReadOnlyList<SawCut> Cuts
+    {
+        get
+        {
+            if (Result is null) return Array.Empty<SawCut>();
+            var (effR, effPieces) = Effective();
+            return SawSequence.Compute(effR, Saw.SawMethod, effPieces);
+        }
+    }
 
-    private IReadOnlyList<Piece>? EffectiveBlock()
+    // Vid märgdelning krymper blocket till ett band av hela reglar centrerat på märgen.
+    private (PostningResult, IReadOnlyList<Piece>?) Effective()
     {
         if (Result is null || !Saw.CenterCutThroughPith || Saw.SawMethod == SawMethod.Genomsagning)
-            return BlockPieces;
+            return (Result!, BlockPieces);
         var baseBlock = BlockPieces ?? PostningLayout.BlockPieces(Result);
-        if (baseBlock.Count == 0) return BlockPieces;
-        var centered = PostningLayout.CenteredBlockPieces(Result.BlockHeight.Inches, baseBlock[0].Thickness, Result.KerfInches);
-        return centered.Count > 0 ? centered : baseBlock;
+        if (baseBlock.Count == 0) return (Result, BlockPieces);
+        var centered = PostningLayout.CenteredBlock(Result, baseBlock[0].Thickness);
+        return centered is null ? (Result, baseBlock) : (centered.Value.Result, centered.Value.Pieces);
     }
 
     private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0");

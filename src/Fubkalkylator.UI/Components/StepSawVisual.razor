@@ -24,7 +24,7 @@
 
         <div class="stepsaw-stage">
             <div class="stepsaw-rot" style="transform: rotate(@Deg(Angle)deg);">
-                @((MarkupString)CrossSectionSvg.RenderStepped(Result, step, Saw.SawMethod, revealCut, EffectiveBlock()))
+                @((MarkupString)CrossSectionSvg.RenderStepped(EffR!, step, Saw.SawMethod, revealCut, EffPieces))
             </div>
         </div>
 
@@ -84,11 +84,12 @@
     private int revealToken;
     private IReadOnlyList<SawCut> cuts = Array.Empty<SawCut>();
 
-    protected override void OnParametersSet()
-    {
-        cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, EffectiveBlock());
-        if (step > cuts.Count) step = cuts.Count;
-    }
+    // Effektiv postning + blockuppdelning: vid märgdelning krymper blocket till ett
+    // band av hela reglar centrerat på märgen (sido-/ändbrädor följer nya kanten).
+    private PostningResult? EffR;
+    private IReadOnlyList<Piece>? EffPieces;
+
+    protected override void OnParametersSet() => Recompute();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -108,15 +109,38 @@
         }
         if (changed)
         {
-            cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, EffectiveBlock());
+            Recompute();
             StateHasChanged();
         }
+    }
+
+    // Räknar om effektiv postning, block och snittordning.
+    private void Recompute()
+    {
+        ComputeEffective();
+        cuts = EffR is null ? Array.Empty<SawCut>() : SawSequence.Compute(EffR, Saw.SawMethod, EffPieces);
+        if (step > cuts.Count) step = cuts.Count;
+    }
+
+    private void ComputeEffective()
+    {
+        EffR = Result;
+        EffPieces = BlockPieces;
+        if (Result is null || !Saw.CenterCutThroughPith || Saw.SawMethod == SawMethod.Genomsagning) return;
+
+        var baseBlock = BlockPieces ?? PostningLayout.BlockPieces(Result);
+        if (baseBlock.Count == 0) return;
+
+        var centered = PostningLayout.CenteredBlock(Result, baseBlock[0].Thickness);
+        if (centered is null) { EffPieces = baseBlock; return; }
+        EffR = centered.Value.Result;
+        EffPieces = centered.Value.Pieces;
     }
 
     private double Angle => step == 0 ? 0 : cuts[step - 1].RotationDegrees;
 
     // Bark nedåt just nu? (rund sida vilar mot bädden → topphöjning aktuell)
-    private bool BarkDownNow => Result is not null && SawSequence.IsBarkDown(Result, step, Saw.SawMethod, EffectiveBlock());
+    private bool BarkDownNow => EffR is not null && SawSequence.IsBarkDown(EffR, step, Saw.SawMethod, EffPieces);
 
     private async Task Next() { if (step < cuts.Count) { step++; await RotateThenReveal(); } }
     private async Task Prev() { if (step > 0) { step--; await RotateThenReveal(); } }
@@ -128,9 +152,9 @@
     {
         Saw.SawMethod = m;
         _ = JS.InvokeVoidAsync("appStore.set", "sawMethod", ((int)m).ToString(CultureInfo.InvariantCulture));
-        cuts = SawSequence.Compute(Result!, m, EffectiveBlock());
         step = 0;
         revealCut = true;
+        Recompute();
     }
 
     private bool CenterPith
@@ -140,21 +164,10 @@
         {
             Saw.CenterCutThroughPith = value;
             _ = JS.InvokeVoidAsync("appStore.set", "centerPith", value ? "1" : "0");
-            cuts = Result is null ? Array.Empty<SawCut>() : SawSequence.Compute(Result, Saw.SawMethod, EffectiveBlock());
             step = 0;
             revealCut = true;
+            Recompute();
         }
-    }
-
-    // Blockuppdelning som används: centrerad kring märgen om märgdelning är på (block-/varvsågning).
-    private IReadOnlyList<Piece>? EffectiveBlock()
-    {
-        if (Result is null || !Saw.CenterCutThroughPith || Saw.SawMethod == SawMethod.Genomsagning)
-            return BlockPieces;
-        var baseBlock = BlockPieces ?? PostningLayout.BlockPieces(Result);
-        if (baseBlock.Count == 0) return BlockPieces;
-        var centered = PostningLayout.CenteredBlockPieces(Result.BlockHeight.Inches, baseBlock[0].Thickness, Result.KerfInches);
-        return centered.Count > 0 ? centered : baseBlock;
     }
 
     // Rotera först (dölj snittet), visa snittlinjen efter att rotationen animerat klart.

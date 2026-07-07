@@ -102,6 +102,27 @@ public class SawSequenceTests
     }
 
     [Fact]
+    public void Centered_block_shrinks_the_block_height_to_the_regel_band()
+    {
+        var r = PostningsMax.Compute(13.0);
+        var adj = PostningLayout.CenteredBlock(r, 2.0);
+        Assert.NotNull(adj);
+        var (result, pieces) = adj!.Value;
+
+        // Blocket har krympt till bandet (eller är lika stort om det redan gick jämnt ut).
+        Assert.True(result.BlockHeight.Inches <= r.BlockHeight.Inches + 1e-9);
+        // Bitarna är re-baserade 0..H' och fyller nya blockhöjden.
+        Assert.Equal(0.0, pieces[0].Start, 6);
+        Assert.Equal(result.BlockHeight.Inches, pieces[^1].End, 6);
+        // Ändregionen (block→bark) är oförändrad — blocket krymper, inte ändbrädorna.
+        Assert.Equal(r.PreBlockHeight.Inches - r.BlockHeight.Inches,
+                     result.PreBlockHeight.Inches - result.BlockHeight.Inches, 6);
+        // Ett snitt hamnar mitt i (nya) blocket = genom kärnan.
+        double c = result.BlockHeight.Inches / 2.0;
+        Assert.Contains(pieces, p => Math.Abs(p.End - c) < 1e-6 || Math.Abs(p.Start - c) < 1e-6);
+    }
+
+    [Fact]
     public void Centered_block_uses_only_whole_reglar_with_equal_margins()
     {
         var r = PostningsMax.Compute(9.75);

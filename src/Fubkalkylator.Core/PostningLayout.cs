@@ -151,6 +151,34 @@ public static class PostningLayout
         return pieces;
     }
 
+    /// <summary>
+    /// Märgdelning: krymper själva blocket till ett band av HELA reglar centrerat på
+    /// märgen (snitt genom kärnan). Returnerar en justerad postning där blockhöjden =
+    /// bandets höjd — så att sido-/ändbrädor följer med till den nya blockkanten — samt
+    /// bandets bitar re-baserade till 0..H'. Det som faller bort upp/ned lämnar blocket
+    /// (ändregionen behålls oförändrad) och kapas som bark vid första snittet.
+    /// Returnerar null om inte en hel regel får plats centrerad.
+    /// </summary>
+    public static (PostningResult Result, IReadOnlyList<Piece> Pieces)? CenteredBlock(PostningResult r, double thicknessInches)
+    {
+        var band = CenteredBlockPieces(r.BlockHeight.Inches, thicknessInches, r.KerfInches);
+        if (band.Count == 0) return null;
+
+        double top = band[0].Start;
+        double newHeight = band[^1].End - top;
+        double removed = r.BlockHeight.Inches - newHeight;   // total marginal (→ bark)
+
+        var pieces = new List<Piece>(band.Count);
+        foreach (var p in band) pieces.Add(new Piece(p.Start - top, p.End - top, p.Kind));
+
+        var adjusted = r with
+        {
+            BlockHeight = newHeight,
+            PreBlockHeight = r.PreBlockHeight.Inches - removed,  // ändregionen behålls, blocket krymper
+        };
+        return (adjusted, pieces);
+    }
+
     private static BoardKind KindForThickness(double t)
     {
         if (Math.Abs(t - 1.0) < 0.01) return BoardKind.OneInch;
