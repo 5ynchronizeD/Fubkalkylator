@@ -45,7 +45,23 @@ public sealed class SupabaseAuthService : IAuthService
 
     public async Task<bool> VerifyCodeAsync(string email, string code)
     {
-        var session = await _client.Auth.VerifyOTP(email, code, Constants.EmailOtpType.Email);
+        // Första inloggningen kan ge en "signup"-token, senare en vanlig "email"-token.
+        // Prova de troliga typerna så det funkar oavsett Supabase-inställning.
+        Session? session = null;
+        foreach (var type in new[]
+                 {
+                     Constants.EmailOtpType.Email,
+                     Constants.EmailOtpType.Signup,
+                     Constants.EmailOtpType.MagicLink,
+                 })
+        {
+            try
+            {
+                session = await _client.Auth.VerifyOTP(email, code, type);
+                if (session is not null) break;
+            }
+            catch { /* fel typ — prova nästa */ }
+        }
         if (session is null) return false;
         await PersistAsync();
         Changed?.Invoke();
