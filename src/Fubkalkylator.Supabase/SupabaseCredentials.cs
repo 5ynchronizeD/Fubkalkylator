@@ -7,8 +7,8 @@ namespace Fubkalkylator.Supabase;
 /// </summary>
 public static class SupabaseCredentials
 {
-    public const string Url = "";
-    public const string AnonKey = "";
+    public const string Url = "https://corivazupqzgywmjwodc.supabase.co";
+    public const string AnonKey = "sb_publishable_Qn7_lWWpTNouiY51Y2DWgg_tjKtLPQe";
 
     public static SupabaseConfig ToConfig() => new() { Url = Url, AnonKey = AnonKey };
 }
