@@ -1,10 +1,15 @@
 @inherits LayoutComponentBase
 @inject IJSRuntime JS
+@inject Fubkalkylator.Core.IAuthService Auth
 
 <div class="app-shell">
     <header class="appbar">
         <span class="logo" aria-hidden="true">🪵</span>
         <span class="app-name">Fubkalkylator</span>
+        @if (Auth.Email is not null)
+        {
+            <button class="theme-toggle" @onclick="Logout" title="Logga ut (@Auth.Email)" aria-label="Logga ut">⎋</button>
+        }
         <button class="theme-toggle" @onclick="ToggleTheme"
                 title="@(isDark ? "Byt till ljust läge" : "Byt till mörkt läge")"
                 aria-label="Växla mörkt/ljust läge">
@@ -16,7 +21,9 @@
 
     <main class="content">
         <article>
-            @Body
+            <AuthGate>
+                @Body
+            </AuthGate>
         </article>
     </main>
 
@@ -45,5 +52,11 @@
     {
         isDark = !isDark;
         await JS.InvokeVoidAsync("setTheme", isDark ? "dark" : "light");
+    }
+
+    private async Task Logout()
+    {
+        await Auth.SignOutAsync();
+        StateHasChanged();
     }
 }

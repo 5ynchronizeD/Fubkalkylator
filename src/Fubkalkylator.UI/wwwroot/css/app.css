@@ -477,6 +477,12 @@ code {
 .clamp-bar .value-box.sm input { padding-right: 2.5rem; }
 .clamp-bar .muted { font-size: .8rem; }
 
+/* ---------- Inloggning ---------- */
+.auth-card { max-width: 22rem; margin: 2rem auto; display: flex; flex-direction: column; gap: .7rem; }
+.auth-card .fld { width: 100%; }
+.auth-actions { display: flex; align-items: center; gap: .8rem; flex-wrap: wrap; }
+.auth-loading { text-align: center; color: var(--muted); padding: 2rem; }
+
 /* ---------- Order-koppling ---------- */
 .ordermatch .ordermark { min-width: 1.4rem; font-weight: 800; }
 .ordermatch .ordermark.ok { color: var(--leaf); }

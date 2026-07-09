@@ -1,0 +1,33 @@
+@inject IAuthService Auth
+@implements IDisposable
+@using Fubkalkylator.Core
+
+@if (!ready)
+{
+    <div class="auth-loading">Laddar…</div>
+}
+else if (Auth.IsSignedIn)
+{
+    @ChildContent
+}
+else
+{
+    <Login />
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool ready;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Auth.Changed += OnChanged;
+        await Auth.InitializeAsync();
+        ready = true;
+    }
+
+    private void OnChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Auth.Changed -= OnChanged;
+}

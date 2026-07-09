@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Fubkalkylator.Core/Fubkalkylator.Core.csproj" />
+    <Project Path="src/Fubkalkylator.Supabase/Fubkalkylator.Supabase.csproj" />
     <Project Path="src/Fubkalkylator.UI/Fubkalkylator.UI.csproj" />
     <Project Path="src/Fubkalkylator.Web/Fubkalkylator.Web.csproj" />
   </Folder>

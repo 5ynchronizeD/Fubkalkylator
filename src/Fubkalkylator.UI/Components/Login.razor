@@ -1,0 +1,58 @@
+@inject IAuthService Auth
+@using Fubkalkylator.Core
+
+<div class="card auth-card">
+    <div class="card-title">Logga in</div>
+
+    @if (!codeSent)
+    {
+        <p class="hint">Ange din e-post så skickar vi en inloggningskod.</p>
+        <input type="email" class="fld" placeholder="din@epost.se" @bind="email" @bind:event="oninput" />
+        <button class="btn" disabled="@(busy || email.Length < 3)" @onclick="Send">
+            @(busy ? "Skickar…" : "Skicka kod")
+        </button>
+    }
+    else
+    {
+        <p class="hint">Vi skickade en kod till <strong>@email</strong>. Skriv in den nedan.</p>
+        <input type="text" inputmode="numeric" autocomplete="one-time-code" class="fld"
+               placeholder="123456" @bind="code" @bind:event="oninput" />
+        <div class="auth-actions">
+            <button class="btn" disabled="@(busy || code.Length < 4)" @onclick="Verify">
+                @(busy ? "Loggar in…" : "Logga in")
+            </button>
+            <button class="linklike" disabled="@busy" @onclick="() => { codeSent = false; error = null; }">Byt e-post</button>
+        </div>
+    }
+
+    @if (error is not null)
+    {
+        <div class="err">@error</div>
+    }
+</div>
+
+@code {
+    private string email = "", code = "";
+    private bool codeSent, busy;
+    private string? error;
+
+    private async Task Send()
+    {
+        error = null; busy = true;
+        try { await Auth.SendCodeAsync(email.Trim()); codeSent = true; }
+        catch (Exception ex) { error = "Kunde inte skicka kod: " + ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task Verify()
+    {
+        error = null; busy = true;
+        try
+        {
+            if (!await Auth.VerifyCodeAsync(email.Trim(), code.Trim()))
+                error = "Fel eller utgången kod — försök igen.";
+        }
+        catch (Exception ex) { error = "Inloggning misslyckades: " + ex.Message; }
+        finally { busy = false; }
+    }
+}

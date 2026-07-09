@@ -74,6 +74,7 @@
     <ItemGroup>
         <ProjectReference Include="..\Fubkalkylator.Core\Fubkalkylator.Core.csproj" />
         <ProjectReference Include="..\Fubkalkylator.UI\Fubkalkylator.UI.csproj" />
+        <ProjectReference Include="..\Fubkalkylator.Supabase\Fubkalkylator.Supabase.csproj" />
     </ItemGroup>
 
 </Project>
