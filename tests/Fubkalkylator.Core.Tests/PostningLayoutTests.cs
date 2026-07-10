@@ -35,17 +35,17 @@ public class PostningLayoutTests
         => Assert.Empty(PostningLayout.EndPiecesPerSide(Ref));
 
     [Fact]
-    public void Side_board_butts_the_block_spill_goes_to_the_bark()
+    public void Side_board_has_a_kerf_gap_to_the_block()
     {
         // Ett grövre fall som ger en sidobräda att titta på.
         var r = PostningsMax.Compute(13.0);
         var pieces = PostningLayout.SidePiecesPerSide(r);
         Assert.NotEmpty(pieces);
 
-        // Innersta brädan ligger dikt an mot blocket (inget spill inåt).
-        Assert.Equal(0.0, pieces[0].Start, 6);
+        // Det ska finnas ett sågspår mellan blocket och innersta sidobrädan (issue #1).
+        Assert.Equal(r.KerfInches, pieces[0].Start, 6);
 
-        // Ev. rest ligger ytterst (mot barken): sista brädans ytterkant ≤ regionen.
+        // Brädorna ryms inom sidoregionen.
         double region = PostningLayout.SideRegionWidth(r);
         Assert.True(pieces[^1].End <= region + 1e-9);
     }

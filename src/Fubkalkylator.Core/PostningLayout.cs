@@ -74,12 +74,12 @@ public static class PostningLayout
             .ToList();
 
         var pieces = new List<Piece>(kinds.Count);
-        double pos = 0; // sido-/ändbrädan ligger dikt an mot blocket …
+        double pos = kerf; // sågspår närmast blocket (klingan äter en kerf när brädan sågas loss)
         foreach (var kind in kinds)
         {
             double t = Size(kind);
             pieces.Add(new Piece(pos, pos + t, kind));
-            pos += t + kerf; // … sågspåret läggs efter varje bit, så spillet hamnar mot barken (ytterst)
+            pos += t + kerf; // sågspår mellan/efter varje bit
         }
         return pieces;
     }
