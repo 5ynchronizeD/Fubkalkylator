@@ -501,6 +501,13 @@ code {
 .auth-loading { text-align: center; color: var(--muted); padding: 2rem; }
 
 /* ---------- Order-koppling ---------- */
+.ordermatch.embedded { margin-top: .8rem; border-top: 1px solid var(--line); padding-top: .7rem; }
+.section-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-bottom: .4rem; }
+
+/* Stega-igenom-knapp under stockbilden + inbäddad panel som blendar in. */
+.figure-step-btn { margin-top: .8rem; }
+.figure-card .stepsaw { margin-top: .8rem; border: 0; box-shadow: none; padding: 0; background: transparent; }
+
 .ordermatch .ordermark { min-width: 1.4rem; font-weight: 800; }
 .ordermatch .ordermark.ok { color: var(--leaf); }
 .ordermatch .ordermark.no { color: #b06a2c; opacity: .7; }

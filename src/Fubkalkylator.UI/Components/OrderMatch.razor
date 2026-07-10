@@ -5,8 +5,8 @@
 
 @if (Items is { Count: > 0 })
 {
-    <div class="card ordermatch">
-        <div class="card-title">Order-koppling</div>
+    <div class="@(Embedded ? "ordermatch embedded" : "card ordermatch")">
+        <div class="@(Embedded ? "section-title" : "card-title")">Order-koppling</div>
         @if (!hasOrder)
         {
             <p class="hint">Ingen orderlista sparad än — lägg in rader under
@@ -39,6 +39,9 @@
 }
 
 @code {
+    /// <summary>Rendera utan eget kort (för att bäddas in i ett annat kort, t.ex. materiallistan).</summary>
+    [Parameter] public bool Embedded { get; set; }
+
     /// <summary>Dimensionerna (tjocklek × bredd) postningen ger, som ska stämmas av mot ordern.</summary>
     [Parameter] public IReadOnlyList<BoardDim>? Items { get; set; }
 

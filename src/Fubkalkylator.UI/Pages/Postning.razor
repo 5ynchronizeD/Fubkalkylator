@@ -50,6 +50,13 @@
                 <span><i class="sw" style="background:#e3b466"></i> 1" bräda</span>
                 <span><i class="sw dashed"></i> förblock / sågsekvens</span>
             </div>
+            <button class="btn ghost sm figure-step-btn" @onclick="() => showStepper = !showStepper">
+                @(showStepper ? "▾ Dölj snittgenomgång" : "▶ Stega igenom snitt")
+            </button>
+            @if (showStepper)
+            {
+                <StepSawVisual Result="result" StartOpen="true" />
+            }
         </div>
 
         <div class="side-col">
@@ -69,6 +76,7 @@
                         </li>
                     }
                 </ul>
+                <OrderMatch Items="ProducedDims(result)" Embedded="true" />
             </div>
 
             <details class="card details">
@@ -87,13 +95,9 @@
                 </table>
             </details>
 
-            <OrderMatch Items="ProducedDims(result)" />
-
             <VolumeValueCard Result="result" OnEconomyChanged="e => economy = e" />
 
             <SawScheduleCard Result="result" />
-
-            <StepSawVisual Result="result" />
 
             <SaveJobForm StockFub="result.DiameterUnderBark.Inches" Kerf="result.KerfInches"
                          BlockWidth="result.BlockWidth.Inches" BlockHeight="result.BlockHeight.Inches"
@@ -109,6 +113,7 @@
     private PostningResult? result;
     private PostningEconomyResult? economy;
     private string? error;
+    private bool showStepper;
 
     private bool HasError => error is not null;
 

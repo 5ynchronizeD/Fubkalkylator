@@ -3,7 +3,7 @@
 @using System.Globalization
 @using Fubkalkylator.Core
 
-<details class="card stepsaw">
+<details class="card stepsaw" open="@StartOpen">
     <summary>Stega igenom snitten</summary>
 
     @if (Result is not null)
@@ -78,6 +78,9 @@
 
     /// <summary>Blockets uppdelning (t.ex. måldimension). Null = blockets standardsnitt (1"/2").</summary>
     [Parameter] public IReadOnlyList<Piece>? BlockPieces { get; set; }
+
+    /// <summary>Öppna panelen direkt (t.ex. när den fälls ut via en knapp på stockbilden).</summary>
+    [Parameter] public bool StartOpen { get; set; }
 
     private int step;
     private bool revealCut = true;
