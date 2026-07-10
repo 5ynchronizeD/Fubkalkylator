@@ -13,27 +13,48 @@ else if (Auth.IsSignedIn)
 }
 else
 {
-    <Login />
+    <Login InitialError="@authError" />
 }
 
 @code {
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     private bool ready;
+    private string? authError;
 
     protected override async Task OnInitializedAsync()
     {
         Auth.Changed += OnChanged;
         await Auth.InitializeAsync();
 
+        var uri = Nav.Uri;
         // Återvändande magisk länk? Token ligger i URL:ens fragment (#access_token=…).
-        if (!Auth.IsSignedIn && Nav.Uri.Contains("access_token", StringComparison.Ordinal))
+        if (!Auth.IsSignedIn && uri.Contains("access_token", StringComparison.Ordinal))
         {
-            if (await Auth.TrySignInFromUrlAsync(Nav.Uri))
+            if (await Auth.TrySignInFromUrlAsync(uri))
                 Nav.NavigateTo(Nav.BaseUri, forceLoad: false);   // rensa bort token ur adressfältet
+        }
+        // Länken kom tillbaka med ett fel (t.ex. utgången/förbrukad)?
+        else if (uri.Contains("error", StringComparison.Ordinal) && uri.Contains('#'))
+        {
+            authError = FragmentValue(uri, "error_description") ?? "Länken var ogiltig eller har gått ut.";
+            authError = authError.Replace('+', ' ');
+            Nav.NavigateTo(Nav.BaseUri, forceLoad: false);
         }
 
         ready = true;
+    }
+
+    private static string? FragmentValue(string url, string key)
+    {
+        int hash = url.IndexOf('#');
+        if (hash < 0) return null;
+        foreach (var part in url[(hash + 1)..].Split('&'))
+        {
+            var kv = part.Split('=', 2);
+            if (kv.Length == 2 && kv[0] == key) return Uri.UnescapeDataString(kv[1]);
+        }
+        return null;
     }
 
     private void OnChanged() => InvokeAsync(StateHasChanged);

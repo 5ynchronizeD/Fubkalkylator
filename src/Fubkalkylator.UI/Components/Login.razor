@@ -28,9 +28,14 @@
 </div>
 
 @code {
+    /// <summary>Ev. fel från en återvändande länk (t.ex. utgången), visas direkt.</summary>
+    [Parameter] public string? InitialError { get; set; }
+
     private string email = "";
     private bool sent, busy;
     private string? error;
+
+    protected override void OnInitialized() => error = InitialError;
 
     private async Task Send()
     {
