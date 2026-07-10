@@ -12,59 +12,44 @@
 
 <div class="page-head">
     <h1>Postning</h1>
-    <p>Utgå från en stock du har — eller från dimensionen du vill ha. Samma ritning,
-        material och snittgenomgång oavsett håll.</p>
+    <p>Utgå från stocken du har: se den optimala postningen — eller ange en dimension
+        och få veta hur många bitar du får ut. Samma ritning, material och snittgenomgång.</p>
 </div>
 
 <div class="seg mode">
-    <button type="button" class="@(mode == Mode.Stock ? "on" : null)" @onclick="() => SetMode(Mode.Stock)">Jag har en stock</button>
-    <button type="button" class="@(mode == Mode.Dim ? "on" : null)" @onclick="() => SetMode(Mode.Dim)">Jag vill ha en dimension</button>
+    <button type="button" class="@(mode == Mode.Optimal ? "on" : null)" @onclick="() => SetMode(Mode.Optimal)">Optimalt ur stocken</button>
+    <button type="button" class="@(mode == Mode.Fit ? "on" : null)" @onclick="() => SetMode(Mode.Fit)">Få ut en dimension</button>
 </div>
 
-@if (mode == Mode.Stock)
-{
-    <div class="input-bar">
-        <div class="bar-top">
-            <label for="fub">Diameter under bark [fub]</label>
-            <div class="seg small">
-                <button type="button" class="@(unit == Unit.Inch ? "on" : null)" @onclick="() => SetUnit(Unit.Inch)">tum</button>
-                <button type="button" class="@(unit == Unit.Mm ? "on" : null)" @onclick="() => SetUnit(Unit.Mm)">mm</button>
-            </div>
+<div class="input-bar">
+    <div class="bar-top">
+        <label for="fub">Stockens diameter [fub]</label>
+        <div class="seg small">
+            <button type="button" class="@(unit == Unit.Inch ? "on" : null)" @onclick="() => SetUnit(Unit.Inch)">tum</button>
+            <button type="button" class="@(unit == Unit.Mm ? "on" : null)" @onclick="() => SetUnit(Unit.Mm)">mm</button>
         </div>
-        <div class="stepper">
-            <button type="button" @onclick="() => Nudge(-1)" aria-label="Minska">−</button>
-            <div class="value-box">
-                <input id="fub" type="number" step="@Step" min="@DispMin" max="@DispMax" @bind="FubDisplay" @bind:event="oninput" />
-                <span class="unit">@UnitSym</span>
-            </div>
-            <button type="button" @onclick="() => Nudge(1)" aria-label="Öka">+</button>
-        </div>
-        @if (stockError is not null)
-        {
-            <div class="err">@stockError</div>
-        }
-        else
-        {
-            <div class="sub">≈ @Other(fub)</div>
-        }
     </div>
-
-    @if (stockResult is not null)
-    {
-        <PostningResultView Result="stockResult" />
-    }
-}
-else
-{
-    <div class="input-bar">
-        <div class="bar-top">
-            <label>Jag vill ha</label>
-            <div class="seg small">
-                <button type="button" class="@(unit == Unit.Inch ? "on" : null)" @onclick="() => SetUnit(Unit.Inch)">tum</button>
-                <button type="button" class="@(unit == Unit.Mm ? "on" : null)" @onclick="() => SetUnit(Unit.Mm)">mm</button>
-            </div>
+    <div class="stepper">
+        <button type="button" @onclick="() => Nudge(-1)" aria-label="Minska">−</button>
+        <div class="value-box">
+            <input id="fub" type="number" step="@Step" min="@DispMin" max="@DispMax" @bind="FubDisplay" @bind:event="oninput" />
+            <span class="unit">@UnitSym</span>
         </div>
+        <button type="button" @onclick="() => Nudge(1)" aria-label="Öka">+</button>
+    </div>
+    @if (stockError is not null)
+    {
+        <div class="err">@stockError</div>
+    }
+    else
+    {
+        <div class="sub">≈ @Other(fub)</div>
+    }
+
+    @if (mode == Mode.Fit)
+    {
         <div class="target-row">
+            <span class="times">→</span>
             <div class="dim-field">
                 <div class="value-box">
                     <input type="number" step="@Step" min="@TMin" max="@TMax" disabled="@thicknessAny"
@@ -85,97 +70,70 @@ else
                 <label class="any"><input type="checkbox" @bind="WidthAny" /> spelar ingen roll</label>
             </div>
         </div>
-    </div>
+    }
+</div>
 
-    @if (thicknessAny && widthAny)
+@if (stockError is not null)
+{
+    <!-- felet visas i inmatningen ovan -->
+}
+else if (mode == Mode.Optimal)
+{
+    @if (stockResult is not null)
     {
-        <div class="banner warn">Ange minst ett mått — annars finns inget att optimera.</div>
+        <PostningResultView Result="stockResult" />
     }
-    else if (widthAny)
-    {
-        @if (widthTable is { Count: > 0 })
-        {
-            <div class="banner">Bredden är fri. Välj en bredd nedan för att se ritningen.</div>
-            <div class="card">
-                <div class="card-title">Alternativ · @U(thickness) tjocka bitar</div>
-                <table class="opt">
-                    <thead><tr><th>Bredd</th><th>Minsta stock</th><th>Antal</th><th>Utbyte</th><th></th></tr></thead>
-                    <tbody>
-                        @foreach (var row in widthTable)
-                        {
-                            <tr @onclick="() => PickWidth(row.ActualBlockWidth.Inches)">
-                                <td>@U(row.ActualBlockWidth)</td>
-                                <td>@U(row.Postning.DiameterUnderBark)</td>
-                                <td>@row.TargetPieceCount st</td>
-                                <td>@Yield(row) %</td>
-                                <td class="go">visa ›</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
-        else
-        {
-            <div class="banner warn">Den tjockleken går inte att få ut inom @U((Measure)20.0) stock.</div>
-        }
-    }
-    else if (thicknessAny)
-    {
-        @if (cant is not null)
-        {
-            <div class="banner">
-                Minsta stock för <strong>@U(width) bred</strong> är <strong>@U(cant.DiameterUnderBark) fub</strong>.
-                Blocket kan klyvas i valfri tjocklek.
-            </div>
-            <PostningResultView Result="cant" Target="BlockOnlyTarget" />
-        }
-        else
-        {
-            <div class="banner warn">Den bredden går inte att få ut inom @U((Measure)20.0) stock.</div>
-        }
-    }
-    else if (result is not null)
+}
+else if (thicknessAny)
+{
+    @if (myCant is not null)
     {
         <div class="banner">
-            Du får <strong>@result.TargetPieceCount st @Dim</strong> ur en stock på
-            minst <strong>@U(result.Postning.DiameterUnderBark) fub</strong>.
-            @if (result.TrimWidthInches > 0.001)
-            {
-                <span class="trim">Blocket blir @U(result.ActualBlockWidth) brett – kapas @U((Measure)result.TrimWidthInches) till målbredd.</span>
-            }
+            Ur din stock (@U((Measure)fub) fub) blir blocket <strong>@U(myCant.BlockWidth) × @U(myCant.BlockHeight)</strong> — klyv i valfri tjocklek.
         </div>
-        <PostningResultView Result="result.Postning" BlockPieces="result.BlockPieces" Target="ResultTarget" />
+        <PostningResultView Result="myCant" Target="BlockOnlyTarget" />
     }
-    else
-    {
-        <div class="banner warn">Den dimensionen går inte att få ut inom @U((Measure)20.0) stock. Prova mindre mått.</div>
-    }
+}
+else if (fit is not null && !fit.WidthFits)
+{
+    <div class="banner warn">
+        @U(width) är för brett för den här stocken. Största bredd du får ur blocket är <strong>@U(fit.MaxWidth)</strong>.
+    </div>
+}
+else if (fit is not null)
+{
+    <div class="banner">
+        Ur din stock (@U((Measure)fub) fub) får du <strong>@fit.PieceCount st @DimFor(FitWidth)</strong>.
+        @if (fit.TrimWidthInches > 0.001)
+        {
+            <span class="trim">Blocket är @U(fit.MaxWidth) brett – kapas @U((Measure)fit.TrimWidthInches) till målbredd.</span>
+        }
+    </div>
+    <PostningResultView Result="fit.Postning" BlockPieces="fit.BlockPieces" Target="FitTarget" />
 }
 
 @code {
-    private enum Mode { Stock, Dim }
+    private enum Mode { Optimal, Fit }
     private enum Unit { Inch, Mm }
 
-    private Mode mode = Mode.Stock;
+    private Mode mode = Mode.Optimal;
     private Unit unit = Unit.Inch;
     private bool ready;
 
-    // Stock-läget
     private double fub = 9.75;
-    private PostningResult? stockResult;
-    private string? stockError;
-
-    // Dimension-läget
     private double width = 6, thickness = 2;
     private bool widthAny, thicknessAny;
-    private TargetResult? result;
-    private IReadOnlyList<TargetResult>? widthTable;
-    private PostningResult? cant;
 
-    private PostningResultView.TargetSpec ResultTarget => result is null
+    private PostningResult? stockResult;
+    private string? stockError;
+    private FitResult? fit;
+    private PostningResult? myCant;
+
+    private double FitWidth => widthAny && fit is not null ? fit.MaxWidth.Inches : width;
+
+    private PostningResultView.TargetSpec FitTarget => fit is null
         ? default!
-        : new(thickness, result.TargetWidth.Inches, result.TargetPieceCount, Dim, BlockOnly: false);
+        : new(thickness, FitWidth, fit.PieceCount, DimFor(FitWidth), BlockOnly: false);
 
     private static readonly PostningResultView.TargetSpec BlockOnlyTarget = new(0, 0, 0, "block", BlockOnly: true);
 
@@ -203,19 +161,15 @@ else
 
     private string U(Measure m) => unit == Unit.Mm ? $"{m.Millimeters:0} mm" : $"{m.Inches:0.##}\"";
     private string Other(double inch) => unit == Unit.Mm ? $"{inch:0.##}\"" : $"{inch * SawConstants.MmPerInch:0.#} mm";
-
-    private string Dim => $"{U(thickness)}×{U((Measure)width)}";
+    private string DimFor(double w) => $"{U(thickness)}×{U((Measure)w)}";
 
     private bool WidthAny { get => widthAny; set { widthAny = value; Recalculate(); } }
     private bool ThicknessAny { get => thicknessAny; set { thicknessAny = value; Recalculate(); } }
 
-    private int Yield(TargetResult row)
-        => PostningMetrics.YieldPercent(row.Postning, row.TargetPieceCount * row.TargetThickness.Inches * row.ActualBlockWidth.Inches);
-
     protected override void OnInitialized()
     {
         Saw.Changed += OnSettingsChanged;
-        if (Nav.Uri.Contains("/mal", StringComparison.OrdinalIgnoreCase)) mode = Mode.Dim;
+        if (Nav.Uri.Contains("/mal", StringComparison.OrdinalIgnoreCase)) mode = Mode.Fit;
         Recalculate();
     }
 
@@ -247,7 +201,6 @@ else
 
     private void SetMode(Mode m) { mode = m; Recalculate(); }
     private void SetUnit(Unit u) { unit = u; Persist(); }
-    private void PickWidth(double w) { width = w; widthAny = false; Recalculate(); }
 
     private void Nudge(int dir)
     {
@@ -267,20 +220,25 @@ else
     private void Recalculate()
     {
         Persist();
-        stockResult = null; stockError = null;
-        result = null; widthTable = null; cant = null;
+        stockResult = null; stockError = null; fit = null; myCant = null;
 
-        if (mode == Mode.Stock)
+        double clamp = Saw.ClampHeightMm / SawConstants.MmPerInch;
+
+        PostningResult p;
+        try { p = PostningsMax.Compute(fub, Saw.KerfInches, clamp); }
+        catch (ArgumentOutOfRangeException)
         {
-            try { stockResult = PostningsMax.Compute(fub, Saw.KerfInches, Saw.ClampHeightMm / SawConstants.MmPerInch); }
-            catch (ArgumentOutOfRangeException ex) { stockError = ex.Message.Split('(')[0].Trim(); }
+            stockError = "Stocken är för klen för att ge ett block. Ange en grövre stock.";
             return;
         }
 
-        if (thicknessAny && widthAny) return;
-        if (widthAny) { if (thickness > 0) widthTable = TargetDimension.ByWidth(thickness, Saw.KerfInches); }
-        else if (thicknessAny) { if (width > 0) cant = TargetDimension.SmallestStockForWidth(width, Saw.KerfInches); }
-        else if (width > 0 && thickness > 0) result = TargetDimension.Compute(width, thickness, Saw.KerfInches);
+        if (mode == Mode.Optimal) { stockResult = p; return; }
+
+        // Fit-läget: få ut en dimension ur stocken.
+        if (thicknessAny) { myCant = p; return; }
+        double w = widthAny ? p.BlockWidth.Inches : width;
+        if (w > 0 && thickness > 0)
+            fit = TargetDimension.FitInStock(fub, w, thickness, Saw.KerfInches);
     }
 
     private void Persist()
