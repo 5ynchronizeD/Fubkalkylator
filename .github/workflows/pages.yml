@@ -1,12 +1,9 @@
 name: Deploy webben till GitHub Pages
 
-# Körs manuellt tills vidare (Actions-fliken → Run workflow). Vill du auto-deploya
-# vid varje push, avkommentera push-blocket nedan. Aktivera först:
-# Settings → Pages → Source: GitHub Actions.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-  # push:
-  #   branches: [main]
 
 permissions:
   contents: read
@@ -23,19 +20,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      # Aktiverar GitHub Pages automatiskt (källa = GitHub Actions).
+      - uses: actions/configure-pages@v5
 
       - name: Publicera Blazor WASM
         run: dotnet publish src/Fubkalkylator.Web/Fubkalkylator.Web.csproj -c Release -o dist
 
       - name: Fixa för GitHub Pages (base href, SPA-fallback, .nojekyll)
         run: |
-          # Undermapp på Pages: https://<användare>.github.io/Fubkalkylator/
-          # Har du eget domännamn (rot) — ta bort raden nedan.
+          # Undermapp på Pages: https://5ynchronized.github.io/Fubkalkylator/
+          # (Har du eget domännamn på roten — ta bort sed-raden.)
           sed -i 's|<base href="/" />|<base href="/Fubkalkylator/" />|' dist/wwwroot/index.html
-          # SPA-fallback så /order, /mal m.m. funkar vid direktladdning/refresh.
+          # SPA-fallback så /order, /loggbok m.m. funkar vid direktladdning/refresh.
           cp dist/wwwroot/index.html dist/wwwroot/404.html
           # Annars strippar Jekyll bort _framework/ och appen blir en vit sida.
           touch dist/wwwroot/.nojekyll
