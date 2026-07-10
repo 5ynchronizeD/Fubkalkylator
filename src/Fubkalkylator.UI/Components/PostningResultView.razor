@@ -1,0 +1,182 @@
+@using Fubkalkylator.Core
+
+<div class="result-grid">
+    <div class="card figure-card">
+        <div class="card-title">Stockände</div>
+        <LogCrossSection Result="Result" BlockPieces="BlockPieces" />
+        <div class="legend">
+            @if (Target is null)
+            {
+                <span><i class="sw" style="background:#b06a2c"></i> 2" regel/plank</span>
+                <span><i class="sw" style="background:#e3b466"></i> 1" bräda</span>
+                <span><i class="sw dashed"></i> förblock / sågsekvens</span>
+            }
+            else
+            {
+                <span><i class="sw" style="background:#c07d33"></i> @(Target.BlockOnly ? "block (klyv fritt)" : "din dimension")</span>
+                @if (!Target.BlockOnly)
+                {
+                    <span><i class="sw" style="background:#e3b466"></i> sido-/ändbräda 1"</span>
+                    <span><i class="sw" style="background:#b06a2c"></i> sido-/ändregel 2"</span>
+                }
+            }
+        </div>
+        <button class="btn ghost sm figure-step-btn" @onclick="() => showStepper = !showStepper">
+            @(showStepper ? "▾ Dölj snittgenomgång" : "▶ Stega igenom snitt")
+        </button>
+        @if (showStepper)
+        {
+            <StepSawVisual Result="Result" BlockPieces="BlockPieces" StartOpen="true" />
+        }
+    </div>
+
+    <div class="side-col">
+        <div class="chips">
+            <div class="chip"><span>Stock (fub)</span><strong>@In(Result.DiameterUnderBark)</strong></div>
+            <div class="chip"><span>Block B×H</span><strong>@In(Result.BlockWidth) × @In(Result.BlockHeight)</strong></div>
+            @if (Target is null)
+            {
+                <div class="chip"><span>Förblock FB×FH</span><strong>@In(Result.PreBlockWidth) × @In(Result.PreBlockHeight)</strong></div>
+            }
+            else
+            {
+                <div class="chip"><span>Utbyte</span><strong>@Yield %</strong></div>
+            }
+        </div>
+
+        <div class="card">
+            <div class="card-title">@(Target is null ? "Materiallista" : "Vad du får ut")</div>
+            @if (Target is null)
+            {
+                <ul class="mat">
+                    @foreach (var line in Materials(Result))
+                    {
+                        <li><span class="q">@line.Count st</span><span class="d">@line.Label</span></li>
+                    }
+                </ul>
+            }
+            else if (Target.BlockOnly)
+            {
+                <p class="hint">Blocket blir <strong>@In(Result.BlockWidth) × @In(Result.BlockHeight)</strong> och kan klyvas i valfri tjocklek.</p>
+                <ul class="mat">
+                    @foreach (var line in ByProducts(Result))
+                    {
+                        <li><span class="q">@line.Count st</span><span class="d">@line.Label</span></li>
+                    }
+                </ul>
+            }
+            else
+            {
+                <ul class="mat">
+                    <li class="hi"><span class="q">@Target.PieceCount st</span><span class="d">@Target.Label (ur blocket)</span></li>
+                    @foreach (var line in ByProducts(Result))
+                    {
+                        <li><span class="q">@line.Count st</span><span class="d">@line.Label</span></li>
+                    }
+                </ul>
+            }
+            <OrderMatch Items="OrderItems()" Embedded="true" />
+        </div>
+
+        <details class="card details">
+            <summary>Alla mått</summary>
+            <table>
+                <tbody>
+                    <tr><td>Blockbredd [B]</td><td>@InMm(Result.BlockWidth)</td></tr>
+                    <tr><td>Blockhöjd [H]</td><td>@InMm(Result.BlockHeight)</td></tr>
+                    <tr><td>Förblockbredd [FB]</td><td>@InMm(Result.PreBlockWidth)</td></tr>
+                    <tr><td>Förblockhöjd [FH]</td><td>@InMm(Result.PreBlockHeight)</td></tr>
+                    <tr><td>1"-brädor ur blocket</td><td>@Result.BlockOneInchBoards st</td></tr>
+                    <tr><td>2"-reglar/plank ur blocket</td><td>@Result.BlockTwoInchBoards st</td></tr>
+                    <tr><td>Sidobrädor 1" / 2"</td><td>@Result.SideOneInchBoards / @Result.SideTwoInchBoards st</td></tr>
+                    <tr><td>Ändbrädor 1" / 2"</td><td>@Result.EndOneInchBoards / @Result.EndTwoInchBoards st</td></tr>
+                </tbody>
+            </table>
+        </details>
+
+        <VolumeValueCard Result="Result" OnEconomyChanged="e => economy = e" />
+
+        <SawScheduleCard Result="Result" BlockPieces="BlockPieces" />
+
+        <SaveJobForm StockFub="Result.DiameterUnderBark.Inches" Kerf="Result.KerfInches"
+                     TargetThickness="Target?.ThicknessInches" TargetWidth="Target?.WidthInches"
+                     BlockWidth="Result.BlockWidth.Inches" BlockHeight="Result.BlockHeight.Inches"
+                     StockLength="economy?.LengthInches" TimberVolumeM3="economy?.TimberVolumeM3"
+                     EstimatedValue="economy?.TotalValue" YieldPercent="economy?.YieldPercent"
+                     CalculatedOutcome="@OutcomeText()" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PostningResult Result { get; set; } = default!;
+
+    /// <summary>Blockets uppdelning (måltjocklek). Null = blockets standardsnitt (1"/2").</summary>
+    [Parameter] public IReadOnlyList<Piece>? BlockPieces { get; set; }
+
+    /// <summary>Sätt för "måldimension"-läget; null = full postning (stock-läget).</summary>
+    [Parameter] public TargetSpec? Target { get; set; }
+
+    private PostningEconomyResult? economy;
+    private bool showStepper;
+
+    public sealed record TargetSpec(double ThicknessInches, double WidthInches, int PieceCount, string Label, bool BlockOnly);
+
+    private int Yield => Target is null || Target.BlockOnly
+        ? PostningMetrics.YieldPercent(Result, Result.BlockWidth.Inches * Result.BlockHeight.Inches)
+        : PostningMetrics.YieldPercent(Result, Target.PieceCount * Target.ThicknessInches * Target.WidthInches);
+
+    private IReadOnlyList<OrderMatch.BoardDim> OrderItems()
+    {
+        double mm = SawConstants.MmPerInch;
+        if (Target is null) return ProducedDims(Result);
+        if (Target.BlockOnly) return System.Array.Empty<OrderMatch.BoardDim>();
+        return new[] { new OrderMatch.BoardDim(Target.ThicknessInches * mm, Target.WidthInches * mm) };
+    }
+
+    private string OutcomeText() => Target is null
+        ? Outcome(Result)
+        : (Target.BlockOnly ? $"block {In(Result.BlockWidth)}×{In(Result.BlockHeight)}" : $"{Target.PieceCount} st {Target.Label}");
+
+    private static IReadOnlyList<OrderMatch.BoardDim> ProducedDims(PostningResult r)
+    {
+        double mm = SawConstants.MmPerInch;
+        double bw = r.BlockWidth.Inches * mm, bh = r.BlockHeight.Inches * mm;
+        var list = new List<OrderMatch.BoardDim>();
+        if (r.BlockTwoInchBoards + r.EndTwoInchBoards > 0) list.Add(new(2 * mm, bw));
+        if (r.BlockOneInchBoards + r.EndOneInchBoards > 0) list.Add(new(1 * mm, bw));
+        if (r.SideTwoInchBoards > 0) list.Add(new(2 * mm, bh));
+        if (r.SideOneInchBoards > 0) list.Add(new(1 * mm, bh));
+        return list;
+    }
+
+    private static IEnumerable<(int Count, string Label)> Materials(PostningResult r)
+    {
+        if (r.BlockTwoInchBoards > 0) yield return (r.BlockTwoInchBoards, "2\"-reglar/plank ur blocket");
+        if (r.BlockOneInchBoards > 0) yield return (r.BlockOneInchBoards, "1\"-brädor ur blocket");
+        foreach (var b in ByProducts(r)) yield return b;
+    }
+
+    private static IEnumerable<(int Count, string Label)> ByProducts(PostningResult r)
+    {
+        if (r.SideTwoInchBoards > 0) yield return (r.SideTwoInchBoards, "2\"-sidoreglar/plank");
+        if (r.SideOneInchBoards > 0) yield return (r.SideOneInchBoards, "1\"-sidobrädor");
+        if (r.EndTwoInchBoards > 0) yield return (r.EndTwoInchBoards, "2\"-ändreglar/plank");
+        if (r.EndOneInchBoards > 0) yield return (r.EndOneInchBoards, "1\"-ändbrädor");
+    }
+
+    private static string In(Measure m) => $"{m.Inches:0.##}\"";
+    private static string InMm(Measure m) => $"{m.Inches:0.##}\"  ({m.Millimeters:0.#} mm)";
+    private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0.#");
+
+    private static string Outcome(PostningResult r)
+    {
+        var parts = new List<string>();
+        if (r.BlockTwoInchBoards > 0) parts.Add($"{r.BlockTwoInchBoards}×2\"");
+        if (r.BlockOneInchBoards > 0) parts.Add($"{r.BlockOneInchBoards}×1\"");
+        int sido = r.SideOneInchBoards + r.SideTwoInchBoards;
+        int anda = r.EndOneInchBoards + r.EndTwoInchBoards;
+        if (sido > 0) parts.Add($"{sido} sidobr.");
+        if (anda > 0) parts.Add($"{anda} ändbr.");
+        return $"block {r.BlockWidth.Inches:0.##}\"×{r.BlockHeight.Inches:0.##}\" — " + string.Join(" + ", parts);
+    }
+}

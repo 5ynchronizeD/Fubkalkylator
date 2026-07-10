@@ -1,181 +1,264 @@
 @page "/"
 @page "/postning"
+@page "/mal"
 @implements IDisposable
 @inject SawSettings Saw
 @inject IJSRuntime JS
+@inject NavigationManager Nav
 @using System.Globalization
+@using System.Text.Json
 
-<PageTitle>PostningsMax</PageTitle>
+<PageTitle>Postning</PageTitle>
 
 <div class="page-head">
-    <h1>PostningsMax</h1>
-    <p>Ange stockens diameter under bark — ritningen och materiallistan uppdateras direkt.</p>
+    <h1>Postning</h1>
+    <p>Utgå från en stock du har — eller från dimensionen du vill ha. Samma ritning,
+        material och snittgenomgång oavsett håll.</p>
 </div>
 
-<div class="input-bar">
-    <div class="bar-top">
-        <label for="fub">Diameter under bark [fub]</label>
-        <div class="seg small">
-            <button type="button" class="@(unit == Unit.Inch ? "on" : null)" @onclick="() => SetUnit(Unit.Inch)">tum</button>
-            <button type="button" class="@(unit == Unit.Mm ? "on" : null)" @onclick="() => SetUnit(Unit.Mm)">mm</button>
+<div class="seg mode">
+    <button type="button" class="@(mode == Mode.Stock ? "on" : null)" @onclick="() => SetMode(Mode.Stock)">Jag har en stock</button>
+    <button type="button" class="@(mode == Mode.Dim ? "on" : null)" @onclick="() => SetMode(Mode.Dim)">Jag vill ha en dimension</button>
+</div>
+
+@if (mode == Mode.Stock)
+{
+    <div class="input-bar">
+        <div class="bar-top">
+            <label for="fub">Diameter under bark [fub]</label>
+            <div class="seg small">
+                <button type="button" class="@(unit == Unit.Inch ? "on" : null)" @onclick="() => SetUnit(Unit.Inch)">tum</button>
+                <button type="button" class="@(unit == Unit.Mm ? "on" : null)" @onclick="() => SetUnit(Unit.Mm)">mm</button>
+            </div>
         </div>
-    </div>
-    <div class="stepper">
-        <button type="button" @onclick="() => Nudge(-1)" aria-label="Minska">−</button>
-        <div class="value-box">
-            <input id="fub" type="number" step="@Step" min="@DispMin" max="@DispMax"
-                   @bind="FubDisplay" @bind:event="oninput" />
-            <span class="unit">@UnitSym</span>
+        <div class="stepper">
+            <button type="button" @onclick="() => Nudge(-1)" aria-label="Minska">−</button>
+            <div class="value-box">
+                <input id="fub" type="number" step="@Step" min="@DispMin" max="@DispMax" @bind="FubDisplay" @bind:event="oninput" />
+                <span class="unit">@UnitSym</span>
+            </div>
+            <button type="button" @onclick="() => Nudge(1)" aria-label="Öka">+</button>
         </div>
-        <button type="button" @onclick="() => Nudge(1)" aria-label="Öka">+</button>
+        @if (stockError is not null)
+        {
+            <div class="err">@stockError</div>
+        }
+        else
+        {
+            <div class="sub">≈ @Other(fub)</div>
+        }
     </div>
-    @if (HasError)
+
+    @if (stockResult is not null)
     {
-        <div class="err">@error</div>
+        <PostningResultView Result="stockResult" />
+    }
+}
+else
+{
+    <div class="input-bar">
+        <div class="bar-top">
+            <label>Jag vill ha</label>
+            <div class="seg small">
+                <button type="button" class="@(unit == Unit.Inch ? "on" : null)" @onclick="() => SetUnit(Unit.Inch)">tum</button>
+                <button type="button" class="@(unit == Unit.Mm ? "on" : null)" @onclick="() => SetUnit(Unit.Mm)">mm</button>
+            </div>
+        </div>
+        <div class="target-row">
+            <div class="dim-field">
+                <div class="value-box">
+                    <input type="number" step="@Step" min="@TMin" max="@TMax" disabled="@thicknessAny"
+                           @bind="ThicknessDisplay" @bind:event="oninput" />
+                    <span class="unit">@UnitSym</span>
+                </div>
+                <small>tjock @(thicknessAny ? "" : $"· {Other(thickness)}")</small>
+                <label class="any"><input type="checkbox" @bind="ThicknessAny" /> spelar ingen roll</label>
+            </div>
+            <span class="times">×</span>
+            <div class="dim-field">
+                <div class="value-box">
+                    <input type="number" step="@Step" min="@WMin" max="@WMax" disabled="@widthAny"
+                           @bind="WidthDisplay" @bind:event="oninput" />
+                    <span class="unit">@UnitSym</span>
+                </div>
+                <small>bred @(widthAny ? "" : $"· {Other(width)}")</small>
+                <label class="any"><input type="checkbox" @bind="WidthAny" /> spelar ingen roll</label>
+            </div>
+        </div>
+    </div>
+
+    @if (thicknessAny && widthAny)
+    {
+        <div class="banner warn">Ange minst ett mått — annars finns inget att optimera.</div>
+    }
+    else if (widthAny)
+    {
+        @if (widthTable is { Count: > 0 })
+        {
+            <div class="banner">Bredden är fri. Välj en bredd nedan för att se ritningen.</div>
+            <div class="card">
+                <div class="card-title">Alternativ · @U(thickness) tjocka bitar</div>
+                <table class="opt">
+                    <thead><tr><th>Bredd</th><th>Minsta stock</th><th>Antal</th><th>Utbyte</th><th></th></tr></thead>
+                    <tbody>
+                        @foreach (var row in widthTable)
+                        {
+                            <tr @onclick="() => PickWidth(row.ActualBlockWidth.Inches)">
+                                <td>@U(row.ActualBlockWidth)</td>
+                                <td>@U(row.Postning.DiameterUnderBark)</td>
+                                <td>@row.TargetPieceCount st</td>
+                                <td>@Yield(row) %</td>
+                                <td class="go">visa ›</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="banner warn">Den tjockleken går inte att få ut inom @U((Measure)20.0) stock.</div>
+        }
+    }
+    else if (thicknessAny)
+    {
+        @if (cant is not null)
+        {
+            <div class="banner">
+                Minsta stock för <strong>@U(width) bred</strong> är <strong>@U(cant.DiameterUnderBark) fub</strong>.
+                Blocket kan klyvas i valfri tjocklek.
+            </div>
+            <PostningResultView Result="cant" Target="BlockOnlyTarget" />
+        }
+        else
+        {
+            <div class="banner warn">Den bredden går inte att få ut inom @U((Measure)20.0) stock.</div>
+        }
+    }
+    else if (result is not null)
+    {
+        <div class="banner">
+            Du får <strong>@result.TargetPieceCount st @Dim</strong> ur en stock på
+            minst <strong>@U(result.Postning.DiameterUnderBark) fub</strong>.
+            @if (result.TrimWidthInches > 0.001)
+            {
+                <span class="trim">Blocket blir @U(result.ActualBlockWidth) brett – kapas @U((Measure)result.TrimWidthInches) till målbredd.</span>
+            }
+        </div>
+        <PostningResultView Result="result.Postning" BlockPieces="result.BlockPieces" Target="ResultTarget" />
     }
     else
     {
-        <div class="sub">≈ @Other()</div>
+        <div class="banner warn">Den dimensionen går inte att få ut inom @U((Measure)20.0) stock. Prova mindre mått.</div>
     }
-</div>
-
-@if (result is not null)
-{
-    <div class="result-grid">
-        <div class="card figure-card">
-            <div class="card-title">Stockände</div>
-            <LogCrossSection Result="result" />
-            <div class="legend">
-                <span><i class="sw" style="background:#b06a2c"></i> 2" regel/plank</span>
-                <span><i class="sw" style="background:#e3b466"></i> 1" bräda</span>
-                <span><i class="sw dashed"></i> förblock / sågsekvens</span>
-            </div>
-            <button class="btn ghost sm figure-step-btn" @onclick="() => showStepper = !showStepper">
-                @(showStepper ? "▾ Dölj snittgenomgång" : "▶ Stega igenom snitt")
-            </button>
-            @if (showStepper)
-            {
-                <StepSawVisual Result="result" StartOpen="true" />
-            }
-        </div>
-
-        <div class="side-col">
-            <div class="chips">
-                <div class="chip"><span>Block B×H</span><strong>@In(result.BlockWidth) × @In(result.BlockHeight)</strong></div>
-                <div class="chip"><span>Förblock FB×FH</span><strong>@In(result.PreBlockWidth) × @In(result.PreBlockHeight)</strong></div>
-            </div>
-
-            <div class="card">
-                <div class="card-title">Materiallista</div>
-                <ul class="mat">
-                    @foreach (var line in Materials(result))
-                    {
-                        <li>
-                            <span class="q">@line.Count st</span>
-                            <span class="d">@line.Label</span>
-                        </li>
-                    }
-                </ul>
-                <OrderMatch Items="ProducedDims(result)" Embedded="true" />
-            </div>
-
-            <details class="card details">
-                <summary>Alla mått</summary>
-                <table>
-                    <tbody>
-                        <tr><td>Blockbredd [B]</td><td>@InMm(result.BlockWidth)</td></tr>
-                        <tr><td>Blockhöjd [H]</td><td>@InMm(result.BlockHeight)</td></tr>
-                        <tr><td>Förblockbredd [FB]</td><td>@InMm(result.PreBlockWidth)</td></tr>
-                        <tr><td>Förblockhöjd [FH]</td><td>@InMm(result.PreBlockHeight)</td></tr>
-                        <tr><td>1"-brädor ur blocket</td><td>@result.BlockOneInchBoards st</td></tr>
-                        <tr><td>2"-reglar/plank ur blocket</td><td>@result.BlockTwoInchBoards st</td></tr>
-                        <tr><td>Sidobrädor 1" / 2"</td><td>@result.SideOneInchBoards / @result.SideTwoInchBoards st</td></tr>
-                        <tr><td>Ändbrädor 1" / 2"</td><td>@result.EndOneInchBoards / @result.EndTwoInchBoards st</td></tr>
-                    </tbody>
-                </table>
-            </details>
-
-            <VolumeValueCard Result="result" OnEconomyChanged="e => economy = e" />
-
-            <SawScheduleCard Result="result" />
-
-            <SaveJobForm StockFub="result.DiameterUnderBark.Inches" Kerf="result.KerfInches"
-                         BlockWidth="result.BlockWidth.Inches" BlockHeight="result.BlockHeight.Inches"
-                         StockLength="economy?.LengthInches" TimberVolumeM3="economy?.TimberVolumeM3"
-                         EstimatedValue="economy?.TotalValue" YieldPercent="economy?.YieldPercent"
-                         CalculatedOutcome="@Outcome(result)" />
-        </div>
-    </div>
 }
 
 @code {
-    private double fub = 9.75;
-    private PostningResult? result;
-    private PostningEconomyResult? economy;
-    private string? error;
-    private bool showStepper;
-
-    private bool HasError => error is not null;
-
+    private enum Mode { Stock, Dim }
     private enum Unit { Inch, Mm }
-    private Unit unit = Unit.Inch;
 
+    private Mode mode = Mode.Stock;
+    private Unit unit = Unit.Inch;
+    private bool ready;
+
+    // Stock-läget
+    private double fub = 9.75;
+    private PostningResult? stockResult;
+    private string? stockError;
+
+    // Dimension-läget
+    private double width = 6, thickness = 2;
+    private bool widthAny, thicknessAny;
+    private TargetResult? result;
+    private IReadOnlyList<TargetResult>? widthTable;
+    private PostningResult? cant;
+
+    private PostningResultView.TargetSpec ResultTarget => result is null
+        ? default!
+        : new(thickness, result.TargetWidth.Inches, result.TargetPieceCount, Dim, BlockOnly: false);
+
+    private static readonly PostningResultView.TargetSpec BlockOnlyTarget = new(0, 0, 0, "block", BlockOnly: true);
+
+    // ---- enheter ----
     private string UnitSym => unit == Unit.Mm ? "mm" : "\"";
     private double Step => unit == Unit.Mm ? 1 : 0.25;
     private double DispMin => unit == Unit.Mm ? 50 : 2;
     private double DispMax => unit == Unit.Mm ? 510 : 20;
+    private double TMin => unit == Unit.Mm ? 13 : 0.5;
+    private double TMax => unit == Unit.Mm ? 300 : 12;
+    private double WMin => unit == Unit.Mm ? 13 : 0.5;
+    private double WMax => unit == Unit.Mm ? 520 : 20;
 
-    // Inmatningsvärdet i vald enhet (internt lagras fub i tum).
+    private static double Round(double v) => Math.Round(v, 2);
+    private double ToDisplay(double inch) => unit == Unit.Mm ? inch * SawConstants.MmPerInch : inch;
+    private double FromDisplay(double disp) => unit == Unit.Mm ? disp / SawConstants.MmPerInch : disp;
+
     private double FubDisplay
     {
         get => unit == Unit.Mm ? Math.Round(fub * SawConstants.MmPerInch) : Math.Round(fub, 2);
         set { fub = unit == Unit.Mm ? value / SawConstants.MmPerInch : value; Recalculate(); }
     }
+    private double ThicknessDisplay { get => Round(ToDisplay(thickness)); set { thickness = FromDisplay(value); Recalculate(); } }
+    private double WidthDisplay { get => Round(ToDisplay(width)); set { width = FromDisplay(value); Recalculate(); } }
 
-    private string Other() => unit == Unit.Mm ? $"{fub:0.##}\"" : $"{Mm(fub)} mm";
+    private string U(Measure m) => unit == Unit.Mm ? $"{m.Millimeters:0} mm" : $"{m.Inches:0.##}\"";
+    private string Other(double inch) => unit == Unit.Mm ? $"{inch:0.##}\"" : $"{inch * SawConstants.MmPerInch:0.#} mm";
 
-    private void SetUnit(Unit u)
-    {
-        unit = u;
-        if (ready) _ = JS.InvokeVoidAsync("appStore.set", "pmUnit", ((int)u).ToString(CultureInfo.InvariantCulture));
-    }
+    private string Dim => $"{U(thickness)}×{U((Measure)width)}";
 
-    private bool ready;
+    private bool WidthAny { get => widthAny; set { widthAny = value; Recalculate(); } }
+    private bool ThicknessAny { get => thicknessAny; set { thicknessAny = value; Recalculate(); } }
+
+    private int Yield(TargetResult row)
+        => PostningMetrics.YieldPercent(row.Postning, row.TargetPieceCount * row.TargetThickness.Inches * row.ActualBlockWidth.Inches);
 
     protected override void OnInitialized()
     {
-        Saw.Changed += OnSettingsChanged;   // sågspår/klämma ändras i profilmenyn
+        Saw.Changed += OnSettingsChanged;
+        if (Nav.Uri.Contains("/mal", StringComparison.OrdinalIgnoreCase)) mode = Mode.Dim;
         Recalculate();
     }
 
     private void OnSettingsChanged() { Recalculate(); StateHasChanged(); }
-
     public void Dispose() => Saw.Changed -= OnSettingsChanged;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
-        var s = await JS.InvokeAsync<string?>("appStore.get", "pmFub");
-        if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) && f >= 2 && f <= 20)
-            fub = f;
-        var u = await JS.InvokeAsync<string?>("appStore.get", "pmUnit");
-        if (int.TryParse(u, out var ui) && Enum.IsDefined(typeof(Unit), ui))
-            unit = (Unit)ui;
+        var s = await JS.InvokeAsync<string?>("appStore.get", "pmState");
+        if (!string.IsNullOrEmpty(s))
+        {
+            try
+            {
+                var d = JsonSerializer.Deserialize<State>(s);
+                if (d is not null)
+                {
+                    if (!Nav.Uri.Contains("/mal", StringComparison.OrdinalIgnoreCase)) mode = (Mode)d.Mode;
+                    unit = (Unit)d.U; fub = d.Fub; thickness = d.T; width = d.W;
+                    thicknessAny = d.TA; widthAny = d.WA;
+                }
+            }
+            catch { /* ignorera trasig cache */ }
+        }
         ready = true;
         Recalculate();
         StateHasChanged();
     }
 
+    private void SetMode(Mode m) { mode = m; Recalculate(); }
+    private void SetUnit(Unit u) { unit = u; Persist(); }
+    private void PickWidth(double w) { width = w; widthAny = false; Recalculate(); }
+
     private void Nudge(int dir)
     {
         if (unit == Unit.Mm)
         {
-            double mm = Math.Round(fub * SawConstants.MmPerInch) + dir * 5;   // 5 mm-steg
+            double mm = Math.Round(fub * SawConstants.MmPerInch) + dir * 5;
             fub = Math.Clamp(mm, 50, 510) / SawConstants.MmPerInch;
         }
         else
         {
-            double inch = Math.Round((fub + dir * 0.25) / 0.25) * 0.25;        // 0,25"-steg
+            double inch = Math.Round((fub + dir * 0.25) / 0.25) * 0.25;
             fub = Math.Clamp(inch, 2, 20);
         }
         Recalculate();
@@ -183,56 +266,38 @@
 
     private void Recalculate()
     {
-        if (ready)
-            _ = JS.InvokeVoidAsync("appStore.set", "pmFub", fub.ToString(CultureInfo.InvariantCulture));
-        try
+        Persist();
+        stockResult = null; stockError = null;
+        result = null; widthTable = null; cant = null;
+
+        if (mode == Mode.Stock)
         {
-            result = PostningsMax.Compute(fub, Saw.KerfInches, Saw.ClampHeightMm / SawConstants.MmPerInch);
-            error = null;
+            try { stockResult = PostningsMax.Compute(fub, Saw.KerfInches, Saw.ClampHeightMm / SawConstants.MmPerInch); }
+            catch (ArgumentOutOfRangeException ex) { stockError = ex.Message.Split('(')[0].Trim(); }
+            return;
         }
-        catch (ArgumentOutOfRangeException ex)
-        {
-            result = null;
-            error = ex.Message.Split('(')[0].Trim();
-        }
+
+        if (thicknessAny && widthAny) return;
+        if (widthAny) { if (thickness > 0) widthTable = TargetDimension.ByWidth(thickness, Saw.KerfInches); }
+        else if (thicknessAny) { if (width > 0) cant = TargetDimension.SmallestStockForWidth(width, Saw.KerfInches); }
+        else if (width > 0 && thickness > 0) result = TargetDimension.Compute(width, thickness, Saw.KerfInches);
     }
 
-    // Distinkta dimensioner (tjocklek × bredd, mm) postningen ger — för order-koppling.
-    private static IReadOnlyList<OrderMatch.BoardDim> ProducedDims(PostningResult r)
+    private void Persist()
     {
-        double mm = SawConstants.MmPerInch;
-        double bw = r.BlockWidth.Inches * mm, bh = r.BlockHeight.Inches * mm;
-        var list = new List<OrderMatch.BoardDim>();
-        if (r.BlockTwoInchBoards + r.EndTwoInchBoards > 0) list.Add(new(2 * mm, bw));
-        if (r.BlockOneInchBoards + r.EndOneInchBoards > 0) list.Add(new(1 * mm, bw));
-        if (r.SideTwoInchBoards > 0) list.Add(new(2 * mm, bh));
-        if (r.SideOneInchBoards > 0) list.Add(new(1 * mm, bh));
-        return list;
+        if (!ready) return;
+        var d = new State { Mode = (int)mode, U = (int)unit, Fub = fub, T = thickness, W = width, TA = thicknessAny, WA = widthAny };
+        _ = JS.InvokeVoidAsync("appStore.set", "pmState", JsonSerializer.Serialize(d));
     }
 
-    private static IEnumerable<(int Count, string Label)> Materials(PostningResult r)
+    private sealed class State
     {
-        if (r.BlockTwoInchBoards > 0) yield return (r.BlockTwoInchBoards, "2\"-reglar/plank ur blocket");
-        if (r.BlockOneInchBoards > 0) yield return (r.BlockOneInchBoards, "1\"-brädor ur blocket");
-        if (r.SideTwoInchBoards > 0) yield return (r.SideTwoInchBoards, "2\"-sidoreglar/plank");
-        if (r.SideOneInchBoards > 0) yield return (r.SideOneInchBoards, "1\"-sidobrädor");
-        if (r.EndTwoInchBoards > 0) yield return (r.EndTwoInchBoards, "2\"-ändreglar/plank");
-        if (r.EndOneInchBoards > 0) yield return (r.EndOneInchBoards, "1\"-ändbrädor");
-    }
-
-    private static string In(Measure m) => $"{m.Inches:0.##}\"";
-    private static string InMm(Measure m) => $"{m.Inches:0.##}\"  ({m.Millimeters:0.#} mm)";
-    private static string Mm(double inches) => (inches * SawConstants.MmPerInch).ToString("0.#");
-
-    private static string Outcome(PostningResult r)
-    {
-        var parts = new List<string>();
-        if (r.BlockTwoInchBoards > 0) parts.Add($"{r.BlockTwoInchBoards}×2\"");
-        if (r.BlockOneInchBoards > 0) parts.Add($"{r.BlockOneInchBoards}×1\"");
-        int sido = r.SideOneInchBoards + r.SideTwoInchBoards;
-        int anda = r.EndOneInchBoards + r.EndTwoInchBoards;
-        if (sido > 0) parts.Add($"{sido} sidobr.");
-        if (anda > 0) parts.Add($"{anda} ändbr.");
-        return $"block {r.BlockWidth.Inches:0.##}\"×{r.BlockHeight.Inches:0.##}\" — " + string.Join(" + ", parts);
+        public int Mode { get; set; }
+        public int U { get; set; }
+        public double Fub { get; set; } = 9.75;
+        public double T { get; set; } = 2;
+        public double W { get; set; } = 6;
+        public bool TA { get; set; }
+        public bool WA { get; set; }
     }
 }
