@@ -15,12 +15,10 @@ public static class CrossSectionSvg
     private const string TargetFill = "#c07d33";
     private const string Stroke = "#4a2f18";
 
-    // Streckmönster (hatch) som ritas i sågzonen — där brädor inte täcker syns det i
-    // spåren, så ett sågspår läses tydligt som ett SNITT och inte ett tomt mellanrum.
-    private const string KerfPattern =
-        "<pattern id=\"kerf\" patternUnits=\"userSpaceOnUse\" width=\"0.11\" height=\"0.11\" patternTransform=\"rotate(45)\">" +
-        "<rect width=\"0.11\" height=\"0.11\" fill=\"#d9c49a\"/>" +
-        "<rect width=\"0.055\" height=\"0.11\" fill=\"#8a6f42\"/></pattern>";
+    // Sågzonen ritas i en tydlig, avvikande färg bakom brädorna — där brädor inte täcker
+    // (dvs i spåren) syns färgen, så ett sågspår läses direkt som ett SNITT, inte ett
+    // tomt mellanrum. Blå för att sticka ut mot träet och inte krocka med röda snittlinjen.
+    private const string KerfColor = "#2b6cb0";
 
     /// <summary>Renderar med blockets ordinarie 1"/2"-uppdelning.</summary>
     public static string Render(PostningResult r) => Render(r, PostningLayout.BlockPieces(r));
@@ -52,7 +50,6 @@ public static class CrossSectionSvg
         // Allt virke klipps mot stockens splintvedscirkel — inget virke kan finnas
         // utanför stocken, så brädor nära kanten kapas naturligt (rundade hörn).
         sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"log\"><circle r=\"{F(woodR)}\"/></clipPath>");
-        sb.Append(KerfPattern);
         sb.Append("</defs>");
         sb.Append(CultureInfo.InvariantCulture, $"<g transform=\"translate({F(c)} {F(c)})\">");
 
@@ -163,7 +160,6 @@ public static class CrossSectionSvg
         sb.Append("<stop offset=\"0%\" stop-color=\"#faeecb\"/><stop offset=\"100%\" stop-color=\"#efd9a3\"/></radialGradient>");
         sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"log\"><circle r=\"{F(woodR)}\"/></clipPath>");
         sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"shape\"><rect x=\"{F(-lx)}\" y=\"{F(-ty)}\" width=\"{F(lx + rx)}\" height=\"{F(ty + by)}\"/></clipPath>");
-        sb.Append(KerfPattern);
         sb.Append("</defs>");
         sb.Append(CultureInfo.InvariantCulture, $"<g transform=\"translate({F(c)} {F(c)})\">");
 
@@ -332,7 +328,7 @@ public static class CrossSectionSvg
     {
         if (w <= 1e-9 || h <= 1e-9) return;
         sb.Append(CultureInfo.InvariantCulture,
-            $"<rect x=\"{F(x)}\" y=\"{F(y)}\" width=\"{F(w)}\" height=\"{F(h)}\" fill=\"url(#kerf)\"/>");
+            $"<rect x=\"{F(x)}\" y=\"{F(y)}\" width=\"{F(w)}\" height=\"{F(h)}\" fill=\"{KerfColor}\"/>");
     }
 
     private static void DashedRect(StringBuilder sb, double x, double y, double w, double h)
