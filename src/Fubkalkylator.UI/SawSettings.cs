@@ -34,4 +34,10 @@ public class SawSettings
         BlockPerCubicMeter = BlockPricePerM3,
         ByproductPerCubicMeter = ByproductPricePerM3,
     };
+
+    /// <summary>Triggas när en global inställning ändras (t.ex. från profilmenyn) så sidor kan räkna om.</summary>
+    public event Action? Changed;
+
+    /// <summary>Meddela att en inställning ändrats.</summary>
+    public void RaiseChanged() => Changed?.Invoke();
 }

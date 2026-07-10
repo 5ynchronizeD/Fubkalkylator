@@ -1,5 +1,6 @@
 @page "/"
 @page "/postning"
+@implements IDisposable
 @inject SawSettings Saw
 @inject IJSRuntime JS
 @using System.Globalization
@@ -31,14 +32,6 @@
         <div class="sub">≈ @Mm(Fub) mm</div>
     }
     <KerfControl OnChanged="Recalculate" />
-    <div class="clamp-bar">
-        <label>Stockklämma</label>
-        <div class="value-box sm">
-            <input type="number" step="1" min="0" max="200" @bind="Clamp" @bind:event="oninput" />
-            <span class="unit">mm</span>
-        </div>
-        <span class="muted">minsta bottenbit — tunnare botten blir spill</span>
-    </div>
 </div>
 
 @if (result is not null)
@@ -122,31 +115,27 @@
 
     private bool ready;
 
-    private double Clamp
+    protected override void OnInitialized()
     {
-        get => Saw.ClampHeightMm;
-        set
-        {
-            Saw.ClampHeightMm = Math.Max(0, value);
-            if (ready) _ = JS.InvokeVoidAsync("appStore.set", "clampMm", Saw.ClampHeightMm.ToString(CultureInfo.InvariantCulture));
-            Recalculate();
-        }
+        Saw.Changed += OnSettingsChanged;   // sågspår/klämma ändras i profilmenyn
+        Recalculate();
     }
 
-    protected override void OnInitialized() => Recalculate();
+    private void OnSettingsChanged() { Recalculate(); StateHasChanged(); }
+
+    public void Dispose() => Saw.Changed -= OnSettingsChanged;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender) return;
         var s = await JS.InvokeAsync<string?>("appStore.get", "pmFub");
         if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) && f >= 2 && f <= 20)
+        {
             fub = f;
-        var cl = await JS.InvokeAsync<string?>("appStore.get", "clampMm");
-        if (double.TryParse(cl, NumberStyles.Any, CultureInfo.InvariantCulture, out var clamp) && clamp >= 0 && clamp <= 200)
-            Saw.ClampHeightMm = clamp;
+            Recalculate();
+            StateHasChanged();
+        }
         ready = true;
-        Recalculate();
-        StateHasChanged();
     }
 
     private void Nudge(double delta)

@@ -477,6 +477,23 @@ code {
 .clamp-bar .value-box.sm input { padding-right: 2.5rem; }
 .clamp-bar .muted { font-size: .8rem; }
 
+/* ---------- Profilmeny ---------- */
+.profile { position: relative; display: inline-flex; }
+.profile-backdrop { position: fixed; inset: 0; z-index: 40; }
+.profile-menu {
+    position: absolute; top: calc(100% + .45rem); right: 0; z-index: 41;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: .85rem; min-width: 15rem;
+    display: flex; flex-direction: column; gap: .8rem;
+}
+.profile-email { font-size: .82rem; color: var(--muted); word-break: break-all; }
+.profile-email strong { color: var(--ink); }
+.profile-section { display: flex; flex-direction: column; gap: .5rem; }
+.profile-section-title { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.profile-section label { display: flex; justify-content: space-between; align-items: center; gap: .6rem; font-size: .88rem; }
+.profile-section .value-box.sm { width: 92px; }
+.profile-section .value-box.sm input { padding-right: 2.4rem; }
+
 /* ---------- Inloggning ---------- */
 .auth-card { max-width: 22rem; margin: 2rem auto; display: flex; flex-direction: column; gap: .7rem; }
 .auth-card .fld { width: 100%; }

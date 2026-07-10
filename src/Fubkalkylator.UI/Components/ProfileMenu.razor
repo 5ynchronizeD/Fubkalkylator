@@ -1,0 +1,86 @@
+@inject SawSettings Saw
+@inject IAuthService Auth
+@inject IJSRuntime JS
+@using System.Globalization
+@using Fubkalkylator.Core
+
+<div class="profile">
+    <button class="theme-toggle" @onclick="Toggle" title="Profil &amp; inställningar" aria-label="Profil och inställningar">👤</button>
+
+    @if (open)
+    {
+        <div class="profile-backdrop" @onclick="Close"></div>
+        <div class="profile-menu">
+            @if (Auth.Email is not null)
+            {
+                <div class="profile-email">Inloggad som<br /><strong>@Auth.Email</strong></div>
+            }
+
+            <div class="profile-section">
+                <div class="profile-section-title">Såginställningar</div>
+                <label>Sågspår
+                    <span class="value-box sm">
+                        <input type="number" step="0.5" min="0.5" max="12" @bind="KerfMm" @bind:event="oninput" />
+                        <span class="unit">mm</span>
+                    </span>
+                </label>
+                <label>Stockklämma
+                    <span class="value-box sm">
+                        <input type="number" step="1" min="0" max="200" @bind="ClampMm" @bind:event="oninput" />
+                        <span class="unit">mm</span>
+                    </span>
+                </label>
+            </div>
+
+            @if (Auth.Email is not null)
+            {
+                <button class="btn ghost sm" @onclick="Logout">Logga ut</button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private bool open;
+    private bool ready;
+
+    private void Toggle() => open = !open;
+    private void Close() => open = false;
+
+    private double KerfMm
+    {
+        get => Math.Round(Saw.KerfInches * SawConstants.MmPerInch, 2);
+        set { Saw.KerfInches = Math.Max(0.1, value) / SawConstants.MmPerInch; Persist("kerfMm", value); Saw.RaiseChanged(); }
+    }
+
+    private double ClampMm
+    {
+        get => Saw.ClampHeightMm;
+        set { Saw.ClampHeightMm = Math.Max(0, value); Persist("clampMm", Saw.ClampHeightMm); Saw.RaiseChanged(); }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var k = await JS.InvokeAsync<string?>("appStore.get", "kerfMm");
+        if (double.TryParse(k, NumberStyles.Any, CultureInfo.InvariantCulture, out var km) && km > 0)
+            Saw.KerfInches = km / SawConstants.MmPerInch;
+        var c = await JS.InvokeAsync<string?>("appStore.get", "clampMm");
+        if (double.TryParse(c, NumberStyles.Any, CultureInfo.InvariantCulture, out var cm) && cm >= 0)
+            Saw.ClampHeightMm = cm;
+        ready = true;
+        Saw.RaiseChanged();   // så öppna sidor räknar om med de laddade värdena
+        StateHasChanged();
+    }
+
+    private void Persist(string key, double value)
+    {
+        if (ready) _ = JS.InvokeVoidAsync("appStore.set", key, value.ToString(CultureInfo.InvariantCulture));
+    }
+
+    private async Task Logout()
+    {
+        open = false;
+        await Auth.SignOutAsync();
+    }
+}
