@@ -15,5 +15,7 @@ public sealed class LocalAuthService : IAuthService
     public Task InitializeAsync() => Task.CompletedTask;
     public Task SendCodeAsync(string email) => Task.CompletedTask;
     public Task<bool> VerifyCodeAsync(string email, string code) => Task.FromResult(true);
+    public Task SendMagicLinkAsync(string email, string redirectUrl) => Task.CompletedTask;
+    public Task<bool> TrySignInFromUrlAsync(string url) => Task.FromResult(false);
     public Task SignOutAsync() => Task.CompletedTask;
 }

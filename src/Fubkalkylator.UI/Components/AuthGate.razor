@@ -1,4 +1,5 @@
 @inject IAuthService Auth
+@inject NavigationManager Nav
 @implements IDisposable
 @using Fubkalkylator.Core
 
@@ -24,6 +25,14 @@ else
     {
         Auth.Changed += OnChanged;
         await Auth.InitializeAsync();
+
+        // Återvändande magisk länk? Token ligger i URL:ens fragment (#access_token=…).
+        if (!Auth.IsSignedIn && Nav.Uri.Contains("access_token", StringComparison.Ordinal))
+        {
+            if (await Auth.TrySignInFromUrlAsync(Nav.Uri))
+                Nav.NavigateTo(Nav.BaseUri, forceLoad: false);   // rensa bort token ur adressfältet
+        }
+
         ready = true;
     }
 

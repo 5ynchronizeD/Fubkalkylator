@@ -18,11 +18,17 @@ public interface IAuthService
     /// <summary>Återställ ev. sparad session vid appstart.</summary>
     Task InitializeAsync();
 
-    /// <summary>Skicka en inloggningskod till e-postadressen.</summary>
+    /// <summary>Skicka en inloggningskod till e-postadressen (OTP-kod, används på Android).</summary>
     Task SendCodeAsync(string email);
 
     /// <summary>Verifiera koden. Returnerar true vid lyckad inloggning.</summary>
     Task<bool> VerifyCodeAsync(string email, string code);
+
+    /// <summary>Skicka en magisk inloggningslänk som pekar tillbaka till <paramref name="redirectUrl"/> (webben).</summary>
+    Task SendMagicLinkAsync(string email, string redirectUrl);
+
+    /// <summary>Logga in från en återvändande länk (token i URL:ens fragment). True om inloggad.</summary>
+    Task<bool> TrySignInFromUrlAsync(string url);
 
     /// <summary>Logga ut och glöm sessionen.</summary>
     Task SignOutAsync();

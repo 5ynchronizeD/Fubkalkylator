@@ -43,6 +43,37 @@ public sealed class SupabaseAuthService : IAuthService
     public Task SendCodeAsync(string email)
         => _client.Auth.SignInWithOtp(new SignInWithPasswordlessEmailOptions(email));
 
+    public Task SendMagicLinkAsync(string email, string redirectUrl)
+        => _client.Auth.SignInWithOtp(new SignInWithPasswordlessEmailOptions(email)
+        {
+            EmailRedirectTo = redirectUrl,
+        });
+
+    public async Task<bool> TrySignInFromUrlAsync(string url)
+    {
+        int hash = url.IndexOf('#');
+        if (hash < 0) return false;
+
+        var pairs = url[(hash + 1)..]
+            .Split('&', StringSplitOptions.RemoveEmptyEntries)
+            .Select(p => p.Split('=', 2))
+            .Where(p => p.Length == 2)
+            .ToDictionary(p => p[0], p => Uri.UnescapeDataString(p[1]));
+
+        if (!pairs.TryGetValue("access_token", out var access) ||
+            !pairs.TryGetValue("refresh_token", out var refresh))
+            return false;
+
+        try
+        {
+            await _client.Auth.SetSession(access, refresh);
+            await PersistAsync();
+            Changed?.Invoke();
+            return true;
+        }
+        catch { return false; }
+    }
+
     public async Task<bool> VerifyCodeAsync(string email, string code)
     {
         // Första inloggningen kan ge en "signup"-token, senare en vanlig "email"-token.

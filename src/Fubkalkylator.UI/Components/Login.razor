@@ -1,28 +1,24 @@
 @inject IAuthService Auth
+@inject NavigationManager Nav
 @using Fubkalkylator.Core
 
 <div class="card auth-card">
     <div class="card-title">Logga in</div>
 
-    @if (!codeSent)
+    @if (!sent)
     {
-        <p class="hint">Ange din e-post så skickar vi en inloggningskod.</p>
+        <p class="hint">Ange din e-post så skickar vi en inloggningslänk. Klicka på länken i mejlet
+            så loggas du in automatiskt.</p>
         <input type="email" class="fld" placeholder="din@epost.se" @bind="email" @bind:event="oninput" />
         <button class="btn" disabled="@(busy || email.Length < 3)" @onclick="Send">
-            @(busy ? "Skickar…" : "Skicka kod")
+            @(busy ? "Skickar…" : "Skicka inloggningslänk")
         </button>
     }
     else
     {
-        <p class="hint">Vi skickade en kod till <strong>@email</strong>. Skriv in den nedan.</p>
-        <input type="text" inputmode="numeric" autocomplete="one-time-code" class="fld"
-               placeholder="123456" @bind="code" @bind:event="oninput" />
-        <div class="auth-actions">
-            <button class="btn" disabled="@(busy || code.Length < 4)" @onclick="Verify">
-                @(busy ? "Loggar in…" : "Logga in")
-            </button>
-            <button class="linklike" disabled="@busy" @onclick="() => { codeSent = false; error = null; }">Byt e-post</button>
-        </div>
+        <p class="hint">✉️ Vi skickade en inloggningslänk till <strong>@email</strong>.
+            Öppna mejlet och klicka på länken — du loggas in automatiskt.</p>
+        <button class="linklike" @onclick="() => { sent = false; error = null; }">Skicka igen / byt e-post</button>
     }
 
     @if (error is not null)
@@ -32,27 +28,19 @@
 </div>
 
 @code {
-    private string email = "", code = "";
-    private bool codeSent, busy;
+    private string email = "";
+    private bool sent, busy;
     private string? error;
 
     private async Task Send()
     {
         error = null; busy = true;
-        try { await Auth.SendCodeAsync(email.Trim()); codeSent = true; }
-        catch (Exception ex) { error = "Kunde inte skicka kod: " + ex.Message; }
-        finally { busy = false; }
-    }
-
-    private async Task Verify()
-    {
-        error = null; busy = true;
         try
         {
-            if (!await Auth.VerifyCodeAsync(email.Trim(), code.Trim()))
-                error = "Fel eller utgången kod — försök igen.";
+            await Auth.SendMagicLinkAsync(email.Trim(), Nav.BaseUri);
+            sent = true;
         }
-        catch (Exception ex) { error = "Inloggning misslyckades: " + ex.Message; }
+        catch (Exception ex) { error = "Kunde inte skicka länk: " + ex.Message; }
         finally { busy = false; }
     }
 }
