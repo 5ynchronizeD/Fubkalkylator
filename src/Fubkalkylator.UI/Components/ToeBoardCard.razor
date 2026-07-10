@@ -41,13 +41,13 @@
     <div class="shrink-inputs">
         <label>Rotände (grov)
             <span class="value-box sm">
-                <input type="number" step="any" min="0" value="@DispCm(buttCm)" @onchange="e => SetButt(e.Value)" />
+                <NumberBox Value="@DispCm(buttCm)" ValueChanged="SetButt" />
                 <span class="unit">@Units.Symbol(Saw, MetricUnit.Cm)</span>
             </span>
         </label>
         <label>Toppände (smal)
             <span class="value-box sm">
-                <input type="number" step="any" min="0" value="@DispCm(topCm)" @onchange="e => SetTop(e.Value)" />
+                <NumberBox Value="@DispCm(topCm)" ValueChanged="SetTop" />
                 <span class="unit">@Units.Symbol(Saw, MetricUnit.Cm)</span>
             </span>
         </label>
@@ -82,13 +82,11 @@
 
     private double DispCm(double cm) => Units.ToDisplay(cm / SawConstants.CmPerInch, Saw, MetricUnit.Cm);
 
-    private void SetButt(object? v) => Set(v, x => buttCm = x, ButtKey);
-    private void SetTop(object? v) => Set(v, x => topCm = x, TopKey);
+    private void SetButt(double d) => Set(d, x => buttCm = x, ButtKey);
+    private void SetTop(double d) => Set(d, x => topCm = x, TopKey);
 
-    private void Set(object? v, Action<double> assign, string key)
+    private void Set(double d, Action<double> assign, string key)
     {
-        if (!double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
-            return;
         double cm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Cm) * SawConstants.CmPerInch);
         assign(cm);
         Persist(key, cm);

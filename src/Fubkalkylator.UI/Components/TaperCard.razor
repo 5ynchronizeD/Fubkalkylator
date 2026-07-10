@@ -11,19 +11,19 @@
     <div class="shrink-inputs">
         <label>Toppdiameter
             <span class="value-box sm">
-                <input type="number" step="any" min="0" value="@DispCm(topCm)" @onchange="e => SetTop(e.Value)" />
+                <NumberBox Value="@DispCm(topCm)" ValueChanged="SetTop" />
                 <span class="unit">@Units.Symbol(Saw, MetricUnit.Cm)</span>
             </span>
         </label>
         <label>Avsmalning
             <span class="value-box sm">
-                <input type="number" step="0.1" min="0" max="10" @bind="TaperCmPerM" @bind:event="oninput" />
+                <NumberBox @bind-Value="TaperCmPerM" />
                 <span class="unit">cm/m</span>
             </span>
         </label>
         <label>Längd
             <span class="value-box sm">
-                <input type="number" step="0.1" min="0" max="30" @bind="LengthM" @bind:event="oninput" />
+                <NumberBox @bind-Value="LengthM" />
                 <span class="unit">m</span>
             </span>
         </label>
@@ -49,10 +49,10 @@
     private double DispCm(double cm) => Units.ToDisplay(cm / SawConstants.CmPerInch, Saw, MetricUnit.Cm);
     private string FmtCm(double cm) => Saw.UseInches ? $"{cm / SawConstants.CmPerInch:0.##}\"" : $"{cm:0.#} cm";
 
-    private void SetTop(object? v)
+    private void SetTop(double d)
     {
-        if (double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
-        { topCm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Cm) * SawConstants.CmPerInch); Persist(TopKey, topCm); }
+        topCm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Cm) * SawConstants.CmPerInch);
+        Persist(TopKey, topCm);
     }
 
     private double TaperCmPerM { get => taperCmPerM; set { taperCmPerM = value; Persist(RateKey, value); } }

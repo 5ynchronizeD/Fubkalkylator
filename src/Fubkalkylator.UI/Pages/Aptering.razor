@@ -16,8 +16,7 @@
     <div class="stepper">
         <button type="button" @onclick="() => Nudge(-0.25)" aria-label="Minska">−</button>
         <div class="value-box">
-            <input id="b" type="number" step="0.25" min="1" max="20"
-                   @bind="BlockWidth" @bind:event="oninput" />
+            <NumberBox @bind-Value="BlockWidth" />
             <span class="unit">"</span>
         </div>
         <button type="button" @onclick="() => Nudge(0.25)" aria-label="Öka">+</button>

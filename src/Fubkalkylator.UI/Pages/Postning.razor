@@ -26,7 +26,7 @@
     <div class="stepper">
         <button type="button" @onclick="() => Nudge(-1)" aria-label="Minska">−</button>
         <div class="value-box">
-            <input id="fub" type="number" step="@Step" min="@DispMin" max="@DispMax" @bind="FubDisplay" @bind:event="oninput" />
+            <NumberBox @bind-Value="FubDisplay" />
             <span class="unit">@UnitSym</span>
         </div>
         <button type="button" @onclick="() => Nudge(1)" aria-label="Öka">+</button>
@@ -46,8 +46,7 @@
             <span class="times">→</span>
             <div class="dim-field">
                 <div class="value-box">
-                    <input type="number" step="@Step" min="@TMin" max="@TMax" disabled="@thicknessAny"
-                           @bind="ThicknessDisplay" @bind:event="oninput" />
+                    <NumberBox @bind-Value="ThicknessDisplay" Disabled="@thicknessAny" />
                     <span class="unit">@UnitSym</span>
                 </div>
                 <small>tjock @(thicknessAny ? "" : $"· {Other(thickness)}")</small>
@@ -56,8 +55,7 @@
             <span class="times">×</span>
             <div class="dim-field">
                 <div class="value-box">
-                    <input type="number" step="@Step" min="@WMin" max="@WMax" disabled="@widthAny"
-                           @bind="WidthDisplay" @bind:event="oninput" />
+                    <NumberBox @bind-Value="WidthDisplay" Disabled="@widthAny" />
                     <span class="unit">@UnitSym</span>
                 </div>
                 <small>bred @(widthAny ? "" : $"· {Other(width)}")</small>

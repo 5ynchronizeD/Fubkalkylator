@@ -20,7 +20,7 @@
         </label>
         <label>Diameter på bark
             <span class="value-box sm">
-                <input type="number" step="any" min="0" value="@Units.ToDisplay(OnBarkInches, Saw, MetricUnit.Cm)" @onchange="e => SetOnBark(e.Value)" />
+                <NumberBox Value="@Units.ToDisplay(OnBarkInches, Saw, MetricUnit.Cm)" ValueChanged="SetOnBark" />
                 <span class="unit">@Units.Symbol(Saw, MetricUnit.Cm)</span>
             </span>
         </label>
@@ -43,10 +43,8 @@
 
     private WoodSpecies Species { get => species; set { species = value; Persist(SpeciesKey, (int)value); } }
 
-    private void SetOnBark(object? v)
+    private void SetOnBark(double d)
     {
-        if (!double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
-            return;
         onBarkCm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Cm) * SawConstants.CmPerInch);
         Persist(OnBarkKey, onBarkCm);
     }

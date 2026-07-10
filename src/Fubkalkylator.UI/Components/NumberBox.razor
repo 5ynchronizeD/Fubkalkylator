@@ -1,0 +1,27 @@
+@using System.Globalization
+
+@* Taltfält som accepterar BÅDE komma och punkt som decimaltecken, oberoende av
+   webbläsarens språk/plattform (fixar iPhone/Safari + svenskt tangentbord). Använder
+   text + inputmode=decimal så webbläsaren inte avvisar tecknet, och tolkar själv. *@
+<input type="text" inputmode="decimal" class="@CssClass" placeholder="@Placeholder"
+       disabled="@Disabled" value="@Display" @onchange="OnChange" />
+
+@code {
+    [Parameter] public double Value { get; set; }
+    [Parameter] public EventCallback<double> ValueChanged { get; set; }
+    [Parameter] public string? CssClass { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+
+    private string Display => Value.ToString("0.####", CultureInfo.InvariantCulture);
+
+    private async Task OnChange(ChangeEventArgs e)
+    {
+        var raw = (e.Value?.ToString() ?? string.Empty).Trim().Replace(',', '.');
+        if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
+            await ValueChanged.InvokeAsync(d);
+        else
+            await ValueChanged.InvokeAsync(Value);   // ogiltig inmatning → behåll gamla värdet
+        StateHasChanged();                           // återställ det visade värdet
+    }
+}

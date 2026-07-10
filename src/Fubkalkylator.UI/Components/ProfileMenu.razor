@@ -28,13 +28,13 @@
                 <div class="profile-section-title">Såginställningar</div>
                 <label>Sågspår
                     <span class="value-box sm">
-                        <input type="number" step="any" min="0" @bind="Kerf" @bind:event="oninput" />
+                        <NumberBox @bind-Value="Kerf" />
                         <span class="unit">@UnitSym</span>
                     </span>
                 </label>
                 <label>Stockklämma
                     <span class="value-box sm">
-                        <input type="number" step="any" min="0" @bind="Clamp" @bind:event="oninput" />
+                        <NumberBox @bind-Value="Clamp" />
                         <span class="unit">@UnitSym</span>
                     </span>
                 </label>

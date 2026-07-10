@@ -31,9 +31,9 @@
                 var row = rows[i];
                 var line = plan is not null && i < plan.Lines.Count ? plan.Lines[i] : null;
                 <tr @key="row">
-                    <td><input type="number" step="any" min="0" value="@Disp(row.ThickMm)" @onchange="e => SetDim(row, 't', e.Value)" /></td>
-                    <td><input type="number" step="any" min="0" value="@Disp(row.WidthMm)" @onchange="e => SetDim(row, 'w', e.Value)" /></td>
-                    <td><input type="number" step="any" min="0" value="@Disp(row.LengthMm)" @onchange="e => SetDim(row, 'l', e.Value)" /></td>
+                    <td><NumberBox Value="@Disp(row.ThickMm)" ValueChanged="v => SetDim(row, 't', v)" /></td>
+                    <td><NumberBox Value="@Disp(row.WidthMm)" ValueChanged="v => SetDim(row, 'w', v)" /></td>
+                    <td><NumberBox Value="@Disp(row.LengthMm)" ValueChanged="v => SetDim(row, 'l', v)" /></td>
                     <td><input type="number" step="1" min="0" max="9999" @bind="row.Qty" @bind:event="oninput" @bind:after="Recalculate" /></td>
                     @if (line?.Achievable == true)
                     {
@@ -70,10 +70,8 @@
     private double Disp(double mm) => Units.ToDisplay(mm / SawConstants.MmPerInch, Saw, MetricUnit.Mm);
     private string FubDisp(Measure m) => Saw.UseInches ? $"{m.Inches:0.##}\"" : $"{m.Centimeters:0.#} cm";
 
-    private void SetDim(Row row, char which, object? v)
+    private void SetDim(Row row, char which, double d)
     {
-        if (!double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
-            return;
         double mm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Mm) * SawConstants.MmPerInch);
         if (which == 't') row.ThickMm = mm;
         else if (which == 'w') row.WidthMm = mm;

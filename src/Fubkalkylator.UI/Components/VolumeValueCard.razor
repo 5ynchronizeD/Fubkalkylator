@@ -9,8 +9,7 @@
     <div class="vv-length">
         <label for="len">Stocklängd</label>
         <div class="value-box sm">
-            <input id="len" type="number" step="0.1" min="0" max="30"
-                   @bind="LengthMeters" @bind:event="oninput" />
+            <NumberBox @bind-Value="LengthMeters" />
             <span class="unit">m</span>
         </div>
     </div>
@@ -29,13 +28,13 @@
             <div class="vv-prices">
                 <label>Block/plank
                     <span class="value-box sm">
-                        <input type="number" step="50" min="0" @bind="BlockPrice" @bind:event="oninput" />
+                        <NumberBox @bind-Value="BlockPrice" />
                         <span class="unit">kr/m³</span>
                     </span>
                 </label>
                 <label>Biprodukter
                     <span class="value-box sm">
-                        <input type="number" step="50" min="0" @bind="ByproductPrice" @bind:event="oninput" />
+                        <NumberBox @bind-Value="ByproductPrice" />
                         <span class="unit">kr/m³</span>
                     </span>
                 </label>

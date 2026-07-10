@@ -20,7 +20,7 @@
     </div>
     <label class="target-mc">Målfukthalt
         <span class="value-box sm">
-            <input type="number" step="1" min="0" max="30" @bind="TargetMc" @bind:event="oninput" />
+            <NumberBox @bind-Value="TargetMc" />
             <span class="unit">%</span>
         </span>
     </label>
