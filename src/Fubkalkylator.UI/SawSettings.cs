@@ -28,6 +28,9 @@ public class SawSettings
     /// <summary>Stockklämmans höjd i mm — sätter minsta möjliga bottenbräda. 0 = ingen gräns.</summary>
     public double ClampHeightMm { get; set; }
 
+    /// <summary>Visa/mata in mått i tum i stället för metriskt (mm/cm). Global inställning.</summary>
+    public bool UseInches { get; set; }
+
     /// <summary>Aktuell prislista utifrån inställningarna.</summary>
     public PriceList Prices => new()
     {

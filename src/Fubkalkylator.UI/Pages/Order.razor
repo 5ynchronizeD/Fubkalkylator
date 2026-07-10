@@ -17,7 +17,7 @@
     <table class="order-table">
         <thead>
             <tr>
-                <th>Tjocklek (mm)</th><th>Bredd (mm)</th><th>Längd (mm)</th><th>Antal</th>
+                <th>Tjocklek (@LenSym)</th><th>Bredd (@LenSym)</th><th>Längd (@LenSym)</th><th>Antal</th>
                 <th>Minsta stock</th><th>Bitar/stock</th><th>Stockar</th><th></th>
             </tr>
         </thead>
@@ -31,13 +31,13 @@
                 var row = rows[i];
                 var line = plan is not null && i < plan.Lines.Count ? plan.Lines[i] : null;
                 <tr @key="row">
-                    <td><input type="number" step="1" min="1" max="300" @bind="row.ThickMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
-                    <td><input type="number" step="1" min="1" max="520" @bind="row.WidthMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
-                    <td><input type="number" step="1" min="1" max="12000" @bind="row.LengthMm" @bind:event="oninput" @bind:after="Recalculate" /></td>
+                    <td><input type="number" step="any" min="0" value="@Disp(row.ThickMm)" @onchange="e => SetDim(row, 't', e.Value)" /></td>
+                    <td><input type="number" step="any" min="0" value="@Disp(row.WidthMm)" @onchange="e => SetDim(row, 'w', e.Value)" /></td>
+                    <td><input type="number" step="any" min="0" value="@Disp(row.LengthMm)" @onchange="e => SetDim(row, 'l', e.Value)" /></td>
                     <td><input type="number" step="1" min="0" max="9999" @bind="row.Qty" @bind:event="oninput" @bind:after="Recalculate" /></td>
                     @if (line?.Achievable == true)
                     {
-                        <td>@Cm(line.Target!.Postning.DiameterUnderBark) fub</td>
+                        <td>@FubDisp(line.Target!.Postning.DiameterUnderBark) fub</td>
                         <td>@line.PiecesPerLog st</td>
                         <td><strong>@line.LogsNeeded st</strong></td>
                     }
@@ -61,10 +61,26 @@
     <div class="order-actions">
         <button class="btn ghost sm" @onclick="AddRow">＋ Lägg till rad</button>
     </div>
-    <p class="hint">Måtten anges i mm. Minsta stock anges som fub (under bark). En stock antas ge en postning.</p>
+    <p class="hint">Måtten anges i vald enhet (ändra i profilmenyn). Minsta stock anges som fub (under bark). En stock antas ge en postning.</p>
 </div>
 
 @code {
+    // Mått lagras i mm; visas i vald global enhet.
+    private string LenSym => Units.Symbol(Saw, MetricUnit.Mm);
+    private double Disp(double mm) => Units.ToDisplay(mm / SawConstants.MmPerInch, Saw, MetricUnit.Mm);
+    private string FubDisp(Measure m) => Saw.UseInches ? $"{m.Inches:0.##}\"" : $"{m.Centimeters:0.#} cm";
+
+    private void SetDim(Row row, char which, object? v)
+    {
+        if (!double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+            return;
+        double mm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Mm) * SawConstants.MmPerInch);
+        if (which == 't') row.ThickMm = mm;
+        else if (which == 'w') row.WidthMm = mm;
+        else row.LengthMm = mm;
+        Recalculate();
+    }
+
     private sealed class Row
     {
         public double ThickMm { get; set; } = 45;

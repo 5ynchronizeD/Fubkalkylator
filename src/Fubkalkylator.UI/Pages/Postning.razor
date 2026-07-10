@@ -22,13 +22,7 @@
 </div>
 
 <div class="input-bar">
-    <div class="bar-top">
-        <label for="fub">Stockens diameter [fub]</label>
-        <div class="seg small">
-            <button type="button" class="@(unit == Unit.Inch ? "on" : null)" @onclick="() => SetUnit(Unit.Inch)">tum</button>
-            <button type="button" class="@(unit == Unit.Mm ? "on" : null)" @onclick="() => SetUnit(Unit.Mm)">mm</button>
-        </div>
-    </div>
+    <label for="fub">Stockens diameter [fub]</label>
     <div class="stepper">
         <button type="button" @onclick="() => Nudge(-1)" aria-label="Minska">−</button>
         <div class="value-box">
@@ -114,11 +108,11 @@ else if (fit is not null)
 
 @code {
     private enum Mode { Optimal, Fit }
-    private enum Unit { Inch, Mm }
 
     private Mode mode = Mode.Optimal;
-    private Unit unit = Unit.Inch;
     private bool ready;
+
+    private bool Mm => !Saw.UseInches;   // global enhet (från profilmenyn)
 
     private double fub = 9.75;
     private double width = 6, thickness = 2;
@@ -137,30 +131,30 @@ else if (fit is not null)
 
     private static readonly PostningResultView.TargetSpec BlockOnlyTarget = new(0, 0, 0, "block", BlockOnly: true);
 
-    // ---- enheter ----
-    private string UnitSym => unit == Unit.Mm ? "mm" : "\"";
-    private double Step => unit == Unit.Mm ? 1 : 0.25;
-    private double DispMin => unit == Unit.Mm ? 50 : 2;
-    private double DispMax => unit == Unit.Mm ? 510 : 20;
-    private double TMin => unit == Unit.Mm ? 13 : 0.5;
-    private double TMax => unit == Unit.Mm ? 300 : 12;
-    private double WMin => unit == Unit.Mm ? 13 : 0.5;
-    private double WMax => unit == Unit.Mm ? 520 : 20;
+    // ---- enheter (global, från profilmenyn) ----
+    private string UnitSym => Mm ? "mm" : "\"";
+    private string Step => "any";
+    private double DispMin => Mm ? 50 : 2;
+    private double DispMax => Mm ? 510 : 20;
+    private double TMin => Mm ? 13 : 0.5;
+    private double TMax => Mm ? 300 : 12;
+    private double WMin => Mm ? 13 : 0.5;
+    private double WMax => Mm ? 520 : 20;
 
     private static double Round(double v) => Math.Round(v, 2);
-    private double ToDisplay(double inch) => unit == Unit.Mm ? inch * SawConstants.MmPerInch : inch;
-    private double FromDisplay(double disp) => unit == Unit.Mm ? disp / SawConstants.MmPerInch : disp;
+    private double ToDisplay(double inch) => Mm ? inch * SawConstants.MmPerInch : inch;
+    private double FromDisplay(double disp) => Mm ? disp / SawConstants.MmPerInch : disp;
 
     private double FubDisplay
     {
-        get => unit == Unit.Mm ? Math.Round(fub * SawConstants.MmPerInch) : Math.Round(fub, 2);
-        set { fub = unit == Unit.Mm ? value / SawConstants.MmPerInch : value; Recalculate(); }
+        get => Mm ? Math.Round(fub * SawConstants.MmPerInch) : Math.Round(fub, 2);
+        set { fub = Mm ? value / SawConstants.MmPerInch : value; Recalculate(); }
     }
     private double ThicknessDisplay { get => Round(ToDisplay(thickness)); set { thickness = FromDisplay(value); Recalculate(); } }
     private double WidthDisplay { get => Round(ToDisplay(width)); set { width = FromDisplay(value); Recalculate(); } }
 
-    private string U(Measure m) => unit == Unit.Mm ? $"{m.Millimeters:0} mm" : $"{m.Inches:0.##}\"";
-    private string Other(double inch) => unit == Unit.Mm ? $"{inch:0.##}\"" : $"{inch * SawConstants.MmPerInch:0.#} mm";
+    private string U(Measure m) => Mm ? $"{m.Millimeters:0} mm" : $"{m.Inches:0.##}\"";
+    private string Other(double inch) => Mm ? $"{inch:0.##}\"" : $"{inch * SawConstants.MmPerInch:0.#} mm";
     private string DimFor(double w) => $"{U(thickness)}×{U((Measure)w)}";
 
     private bool WidthAny { get => widthAny; set { widthAny = value; Recalculate(); } }
@@ -188,7 +182,7 @@ else if (fit is not null)
                 if (d is not null)
                 {
                     if (!Nav.Uri.Contains("/mal", StringComparison.OrdinalIgnoreCase)) mode = (Mode)d.Mode;
-                    unit = (Unit)d.U; fub = d.Fub; thickness = d.T; width = d.W;
+                    fub = d.Fub; thickness = d.T; width = d.W;
                     thicknessAny = d.TA; widthAny = d.WA;
                 }
             }
@@ -200,11 +194,10 @@ else if (fit is not null)
     }
 
     private void SetMode(Mode m) { mode = m; Recalculate(); }
-    private void SetUnit(Unit u) { unit = u; Persist(); }
 
     private void Nudge(int dir)
     {
-        if (unit == Unit.Mm)
+        if (Mm)
         {
             double mm = Math.Round(fub * SawConstants.MmPerInch) + dir * 5;
             fub = Math.Clamp(mm, 50, 510) / SawConstants.MmPerInch;
@@ -244,7 +237,7 @@ else if (fit is not null)
     private void Persist()
     {
         if (!ready) return;
-        var d = new State { Mode = (int)mode, U = (int)unit, Fub = fub, T = thickness, W = width, TA = thicknessAny, WA = widthAny };
+        var d = new State { Mode = (int)mode, Fub = fub, T = thickness, W = width, TA = thicknessAny, WA = widthAny };
         _ = JS.InvokeVoidAsync("appStore.set", "pmState", JsonSerializer.Serialize(d));
     }
 
