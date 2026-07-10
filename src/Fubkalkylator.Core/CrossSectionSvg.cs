@@ -15,6 +15,13 @@ public static class CrossSectionSvg
     private const string TargetFill = "#c07d33";
     private const string Stroke = "#4a2f18";
 
+    // Streckmönster (hatch) som ritas i sågzonen — där brädor inte täcker syns det i
+    // spåren, så ett sågspår läses tydligt som ett SNITT och inte ett tomt mellanrum.
+    private const string KerfPattern =
+        "<pattern id=\"kerf\" patternUnits=\"userSpaceOnUse\" width=\"0.11\" height=\"0.11\" patternTransform=\"rotate(45)\">" +
+        "<rect width=\"0.11\" height=\"0.11\" fill=\"#d9c49a\"/>" +
+        "<rect width=\"0.055\" height=\"0.11\" fill=\"#8a6f42\"/></pattern>";
+
     /// <summary>Renderar med blockets ordinarie 1"/2"-uppdelning.</summary>
     public static string Render(PostningResult r) => Render(r, PostningLayout.BlockPieces(r));
 
@@ -45,6 +52,7 @@ public static class CrossSectionSvg
         // Allt virke klipps mot stockens splintvedscirkel — inget virke kan finnas
         // utanför stocken, så brädor nära kanten kapas naturligt (rundade hörn).
         sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"log\"><circle r=\"{F(woodR)}\"/></clipPath>");
+        sb.Append(KerfPattern);
         sb.Append("</defs>");
         sb.Append(CultureInfo.InvariantCulture, $"<g transform=\"translate({F(c)} {F(c)})\">");
 
@@ -56,29 +64,36 @@ public static class CrossSectionSvg
         // Virkesgrupp: klippt mot stockcirkeln
         sb.Append("<g clip-path=\"url(#log)\">");
 
-        // Block-bas: bara över reglarnas band (vid märgdelning ligger bandet centrerat
-        // med marginal upp/ned — marginalen är inte block utan kapas bort som bark).
+        var side = PostningLayout.SidePiecesPerSide(r);
+        var end = PostningLayout.EndPiecesPerSide(r);
+        double sideExt = side.Count > 0 ? side[^1].End : 0;
+        double endExt = end.Count > 0 ? end[^1].End : 0;
+
+        // Sågzons-bakgrund (kerf-mönster) — syns i spåren mellan brädorna.
         if (blockPieces.Count > 0)
         {
             double bandTop = -H / 2 + blockPieces[0].Start;
             double bandH = blockPieces[^1].End - blockPieces[0].Start;
-            sb.Append(CultureInfo.InvariantCulture,
-                $"<rect x=\"{F(-B / 2)}\" y=\"{F(bandTop)}\" width=\"{F(B)}\" height=\"{F(bandH)}\" fill=\"#e9cf95\"/>");
+            KerfBg(sb, -B / 2, bandTop, B, bandH);
         }
+        KerfBg(sb, B / 2, -H / 2, sideExt, H);
+        KerfBg(sb, -B / 2 - sideExt, -H / 2, sideExt, H);
+        KerfBg(sb, -B / 2, -H / 2 - endExt, B, endExt);
+        if (r.EndSides == 2) KerfBg(sb, -B / 2, H / 2, B, endExt);
 
         // Blockets bitar (ordinarie eller egen uppdelning)
         foreach (var p in blockPieces)
             Rect(sb, -B / 2, -H / 2 + p.Start, B, p.Thickness, Fill(p.Kind));
 
         // Sidobrädor (vänster + höger)
-        foreach (var p in PostningLayout.SidePiecesPerSide(r))
+        foreach (var p in side)
         {
             Rect(sb, -B / 2 - p.End, -H / 2, p.Thickness, H, Fill(p.Kind));
             Rect(sb, B / 2 + p.Start, -H / 2, p.Thickness, H, Fill(p.Kind));
         }
 
         // Ändbrädor: alltid toppen; botten bara om den änden ger utbyte (annars barkbädd).
-        foreach (var p in PostningLayout.EndPiecesPerSide(r))
+        foreach (var p in end)
         {
             Rect(sb, -B / 2, -H / 2 - p.End, B, p.Thickness, Fill(p.Kind));
             if (r.EndSides == 2)
@@ -147,7 +162,9 @@ public static class CrossSectionSvg
         sb.Append("<defs><radialGradient id=\"wood\" cx=\"42%\" cy=\"38%\" r=\"70%\">");
         sb.Append("<stop offset=\"0%\" stop-color=\"#faeecb\"/><stop offset=\"100%\" stop-color=\"#efd9a3\"/></radialGradient>");
         sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"log\"><circle r=\"{F(woodR)}\"/></clipPath>");
-        sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"shape\"><rect x=\"{F(-lx)}\" y=\"{F(-ty)}\" width=\"{F(lx + rx)}\" height=\"{F(ty + by)}\"/></clipPath></defs>");
+        sb.Append(CultureInfo.InvariantCulture, $"<clipPath id=\"shape\"><rect x=\"{F(-lx)}\" y=\"{F(-ty)}\" width=\"{F(lx + rx)}\" height=\"{F(ty + by)}\"/></clipPath>");
+        sb.Append(KerfPattern);
+        sb.Append("</defs>");
         sb.Append(CultureInfo.InvariantCulture, $"<g transform=\"translate({F(c)} {F(c)})\">");
 
         // Bark + splintved klipps mot den nuvarande formen (blir platt där man sågat).
@@ -155,13 +172,20 @@ public static class CrossSectionSvg
         sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(barkR)}\" fill=\"#5b3a21\"/>");
         sb.Append(CultureInfo.InvariantCulture, $"<circle r=\"{F(woodR)}\" fill=\"url(#wood)\" stroke=\"#c9a86a\" stroke-width=\"1\" vector-effect=\"non-scaling-stroke\"/>");
         sb.Append("<g clip-path=\"url(#log)\">");
+        double sideExt = side.Count > 0 ? side[^1].End : 0;
+        double endExt = end.Count > 0 ? end[^1].End : 0;
+        // Sågzons-bakgrund (kerf-mönster) — syns i spåren mellan brädorna.
         if (blockList.Count > 0)
         {
-            // Block-bas bara över reglarnas band (märgdelning: marginalen kapas som bark).
             double bandTop = -hh + blockList[0].Start;
             double bandH = blockList[^1].End - blockList[0].Start;
-            sb.Append(CultureInfo.InvariantCulture, $"<rect x=\"{F(-bh)}\" y=\"{F(bandTop)}\" width=\"{F(B)}\" height=\"{F(bandH)}\" fill=\"#e9cf95\"/>");
+            KerfBg(sb, -bh, bandTop, B, bandH);
         }
+        KerfBg(sb, bh, -hh, sideExt, H);
+        KerfBg(sb, -bh - sideExt, -hh, sideExt, H);
+        KerfBg(sb, -bh, -hh - endExt, B, endExt);
+        if (r.EndSides == 2) KerfBg(sb, -bh, hh, B, endExt);
+
         foreach (var p in blockList)
             Rect(sb, -bh, -hh + p.Start, B, p.Thickness, Fill(p.Kind));
         for (int i = 0; i < side.Count; i++)
@@ -302,6 +326,14 @@ public static class CrossSectionSvg
     private static void Rect(StringBuilder sb, double x, double y, double w, double h, string fill)
         => sb.Append(CultureInfo.InvariantCulture,
             $"<rect x=\"{F(x)}\" y=\"{F(y)}\" width=\"{F(w)}\" height=\"{F(h)}\" fill=\"{fill}\" stroke=\"{Stroke}\" stroke-width=\"1\" vector-effect=\"non-scaling-stroke\"/>");
+
+    // Sågzons-bakgrund med kerf-mönstret (ritas före brädorna; syns i spåren).
+    private static void KerfBg(StringBuilder sb, double x, double y, double w, double h)
+    {
+        if (w <= 1e-9 || h <= 1e-9) return;
+        sb.Append(CultureInfo.InvariantCulture,
+            $"<rect x=\"{F(x)}\" y=\"{F(y)}\" width=\"{F(w)}\" height=\"{F(h)}\" fill=\"url(#kerf)\"/>");
+    }
 
     private static void DashedRect(StringBuilder sb, double x, double y, double w, double h)
         => sb.Append(CultureInfo.InvariantCulture,
