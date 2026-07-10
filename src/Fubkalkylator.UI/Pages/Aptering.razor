@@ -1,5 +1,7 @@
 @page "/aptering"
+@implements IDisposable
 @inject IJSRuntime JS
+@inject SawSettings Saw
 @using System.Globalization
 
 <PageTitle>ApteringsMax</PageTitle>
@@ -60,7 +62,14 @@
 
     private bool ready;
 
-    protected override void OnInitialized() => Recalculate();
+    protected override void OnInitialized()
+    {
+        Saw.Changed += OnUnitChanged;   // så bark-/avsmalningskorten byter enhet direkt
+        Recalculate();
+    }
+
+    private void OnUnitChanged() => InvokeAsync(StateHasChanged);
+    public void Dispose() => Saw.Changed -= OnUnitChanged;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

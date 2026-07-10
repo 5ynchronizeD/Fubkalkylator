@@ -1,4 +1,5 @@
 @inject IJSRuntime JS
+@inject SawSettings Saw
 @using System.Globalization
 @using Fubkalkylator.Core
 
@@ -19,8 +20,8 @@
         </label>
         <label>Diameter på bark
             <span class="value-box sm">
-                <input type="number" step="1" min="0" max="150" @bind="OnBarkCm" @bind:event="oninput" />
-                <span class="unit">cm</span>
+                <input type="number" step="any" min="0" value="@Units.ToDisplay(OnBarkInches, Saw, MetricUnit.Cm)" @onchange="e => SetOnBark(e.Value)" />
+                <span class="unit">@Units.Symbol(Saw, MetricUnit.Cm)</span>
             </span>
         </label>
     </div>
@@ -41,7 +42,14 @@
     private bool ready;
 
     private WoodSpecies Species { get => species; set { species = value; Persist(SpeciesKey, (int)value); } }
-    private double OnBarkCm { get => onBarkCm; set { onBarkCm = value; Persist(OnBarkKey, value); } }
+
+    private void SetOnBark(object? v)
+    {
+        if (!double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+            return;
+        onBarkCm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Cm) * SawConstants.CmPerInch);
+        Persist(OnBarkKey, onBarkCm);
+    }
 
     private double OnBarkInches => Math.Max(0, onBarkCm) / SawConstants.CmPerInch;
     private double FubInches => Bark.FubFromOnBark(species, OnBarkInches);

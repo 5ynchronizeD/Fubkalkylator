@@ -1,4 +1,5 @@
 @inject IJSRuntime JS
+@inject SawSettings Saw
 @using System.Globalization
 @using Fubkalkylator.Core
 
@@ -10,8 +11,8 @@
     <div class="shrink-inputs">
         <label>Toppdiameter
             <span class="value-box sm">
-                <input type="number" step="1" min="0" max="150" @bind="TopCm" @bind:event="oninput" />
-                <span class="unit">cm</span>
+                <input type="number" step="any" min="0" value="@DispCm(topCm)" @onchange="e => SetTop(e.Value)" />
+                <span class="unit">@Units.Symbol(Saw, MetricUnit.Cm)</span>
             </span>
         </label>
         <label>Avsmalning
@@ -29,9 +30,9 @@
     </div>
 
     <div class="chips">
-        <div class="chip"><span>Grovända (rot)</span><strong>@Butt.ToString("0.#") cm</strong></div>
-        <div class="chip"><span>Mitt</span><strong>@Mid.ToString("0.#") cm</strong></div>
-        <div class="chip"><span>Topp</span><strong>@topCm.ToString("0.#") cm</strong></div>
+        <div class="chip"><span>Grovända (rot)</span><strong>@FmtCm(Butt)</strong></div>
+        <div class="chip"><span>Mitt</span><strong>@FmtCm(Mid)</strong></div>
+        <div class="chip"><span>Topp</span><strong>@FmtCm(topCm)</strong></div>
     </div>
 </div>
 
@@ -45,7 +46,15 @@
     private double lengthM = 4;
     private bool ready;
 
-    private double TopCm { get => topCm; set { topCm = value; Persist(TopKey, value); } }
+    private double DispCm(double cm) => Units.ToDisplay(cm / SawConstants.CmPerInch, Saw, MetricUnit.Cm);
+    private string FmtCm(double cm) => Saw.UseInches ? $"{cm / SawConstants.CmPerInch:0.##}\"" : $"{cm:0.#} cm";
+
+    private void SetTop(object? v)
+    {
+        if (double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+        { topCm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Cm) * SawConstants.CmPerInch); Persist(TopKey, topCm); }
+    }
+
     private double TaperCmPerM { get => taperCmPerM; set { taperCmPerM = value; Persist(RateKey, value); } }
     private double LengthM { get => lengthM; set { lengthM = value; Persist(LenKey, value); } }
 

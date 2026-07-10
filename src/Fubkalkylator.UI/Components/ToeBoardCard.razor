@@ -1,4 +1,5 @@
 @inject IJSRuntime JS
+@inject SawSettings Saw
 @using System.Globalization
 @using Fubkalkylator.Core
 
@@ -40,14 +41,14 @@
     <div class="shrink-inputs">
         <label>Rotände (grov)
             <span class="value-box sm">
-                <input type="number" step="1" min="0" max="150" @bind="ButtCm" @bind:event="oninput" />
-                <span class="unit">cm</span>
+                <input type="number" step="any" min="0" value="@DispCm(buttCm)" @onchange="e => SetButt(e.Value)" />
+                <span class="unit">@Units.Symbol(Saw, MetricUnit.Cm)</span>
             </span>
         </label>
         <label>Toppände (smal)
             <span class="value-box sm">
-                <input type="number" step="1" min="0" max="150" @bind="TopCm" @bind:event="oninput" />
-                <span class="unit">cm</span>
+                <input type="number" step="any" min="0" value="@DispCm(topCm)" @onchange="e => SetTop(e.Value)" />
+                <span class="unit">@Units.Symbol(Saw, MetricUnit.Cm)</span>
             </span>
         </label>
     </div>
@@ -79,8 +80,19 @@
     private double topCm = 24;
     private bool ready;
 
-    private double ButtCm { get => buttCm; set { buttCm = value; Persist(ButtKey, value); } }
-    private double TopCm { get => topCm; set { topCm = value; Persist(TopKey, value); } }
+    private double DispCm(double cm) => Units.ToDisplay(cm / SawConstants.CmPerInch, Saw, MetricUnit.Cm);
+
+    private void SetButt(object? v) => Set(v, x => buttCm = x, ButtKey);
+    private void SetTop(object? v) => Set(v, x => topCm = x, TopKey);
+
+    private void Set(object? v, Action<double> assign, string key)
+    {
+        if (!double.TryParse(Convert.ToString(v, CultureInfo.InvariantCulture), NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+            return;
+        double cm = Math.Max(0, Units.FromDisplay(d, Saw, MetricUnit.Cm) * SawConstants.CmPerInch);
+        assign(cm);
+        Persist(key, cm);
+    }
 
     private double Raise => Taper.ToeBoardRaiseCm(buttCm, topCm);
     private string Mm => (Raise * 10).ToString("0", CultureInfo.InvariantCulture);
