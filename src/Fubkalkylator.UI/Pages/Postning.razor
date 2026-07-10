@@ -13,15 +13,21 @@
 </div>
 
 <div class="input-bar">
-    <label for="fub">Diameter under bark [fub]</label>
-    <div class="stepper">
-        <button type="button" @onclick="() => Nudge(-0.25)" aria-label="Minska">−</button>
-        <div class="value-box">
-            <input id="fub" type="number" step="0.25" min="2" max="20"
-                   @bind="Fub" @bind:event="oninput" />
-            <span class="unit">"</span>
+    <div class="bar-top">
+        <label for="fub">Diameter under bark [fub]</label>
+        <div class="seg small">
+            <button type="button" class="@(unit == Unit.Inch ? "on" : null)" @onclick="() => SetUnit(Unit.Inch)">tum</button>
+            <button type="button" class="@(unit == Unit.Mm ? "on" : null)" @onclick="() => SetUnit(Unit.Mm)">mm</button>
         </div>
-        <button type="button" @onclick="() => Nudge(0.25)" aria-label="Öka">+</button>
+    </div>
+    <div class="stepper">
+        <button type="button" @onclick="() => Nudge(-1)" aria-label="Minska">−</button>
+        <div class="value-box">
+            <input id="fub" type="number" step="@Step" min="@DispMin" max="@DispMax"
+                   @bind="FubDisplay" @bind:event="oninput" />
+            <span class="unit">@UnitSym</span>
+        </div>
+        <button type="button" @onclick="() => Nudge(1)" aria-label="Öka">+</button>
     </div>
     @if (HasError)
     {
@@ -29,9 +35,8 @@
     }
     else
     {
-        <div class="sub">≈ @Mm(Fub) mm</div>
+        <div class="sub">≈ @Other()</div>
     }
-    <KerfControl OnChanged="Recalculate" />
 </div>
 
 @if (result is not null)
@@ -107,10 +112,27 @@
 
     private bool HasError => error is not null;
 
-    private double Fub
+    private enum Unit { Inch, Mm }
+    private Unit unit = Unit.Inch;
+
+    private string UnitSym => unit == Unit.Mm ? "mm" : "\"";
+    private double Step => unit == Unit.Mm ? 1 : 0.25;
+    private double DispMin => unit == Unit.Mm ? 50 : 2;
+    private double DispMax => unit == Unit.Mm ? 510 : 20;
+
+    // Inmatningsvärdet i vald enhet (internt lagras fub i tum).
+    private double FubDisplay
     {
-        get => fub;
-        set { fub = value; Recalculate(); }
+        get => unit == Unit.Mm ? Math.Round(fub * SawConstants.MmPerInch) : Math.Round(fub, 2);
+        set { fub = unit == Unit.Mm ? value / SawConstants.MmPerInch : value; Recalculate(); }
+    }
+
+    private string Other() => unit == Unit.Mm ? $"{fub:0.##}\"" : $"{Mm(fub)} mm";
+
+    private void SetUnit(Unit u)
+    {
+        unit = u;
+        if (ready) _ = JS.InvokeVoidAsync("appStore.set", "pmUnit", ((int)u).ToString(CultureInfo.InvariantCulture));
     }
 
     private bool ready;
@@ -130,17 +152,28 @@
         if (!firstRender) return;
         var s = await JS.InvokeAsync<string?>("appStore.get", "pmFub");
         if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var f) && f >= 2 && f <= 20)
-        {
             fub = f;
-            Recalculate();
-            StateHasChanged();
-        }
+        var u = await JS.InvokeAsync<string?>("appStore.get", "pmUnit");
+        if (int.TryParse(u, out var ui) && Enum.IsDefined(typeof(Unit), ui))
+            unit = (Unit)ui;
         ready = true;
+        Recalculate();
+        StateHasChanged();
     }
 
-    private void Nudge(double delta)
+    private void Nudge(int dir)
     {
-        Fub = Math.Round(Math.Clamp(fub + delta, 2, 20) / 0.25) * 0.25;
+        if (unit == Unit.Mm)
+        {
+            double mm = Math.Round(fub * SawConstants.MmPerInch) + dir * 5;   // 5 mm-steg
+            fub = Math.Clamp(mm, 50, 510) / SawConstants.MmPerInch;
+        }
+        else
+        {
+            double inch = Math.Round((fub + dir * 0.25) / 0.25) * 0.25;        // 0,25"-steg
+            fub = Math.Clamp(inch, 2, 20);
+        }
+        Recalculate();
     }
 
     private void Recalculate()
