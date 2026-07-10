@@ -75,6 +75,30 @@ else if (mode == Mode.Optimal)
 {
     @if (stockResult is not null)
     {
+        @if (alternatives.Count > 1)
+        {
+            <details class="card alternatives">
+                <summary>Blockning: <strong>@Mix(stockResult)</strong> — byt (@alternatives.Count alt.)</summary>
+                <p class="hint">Välj en mindre blockhöjd för en annan brädmix. Mindre block ger oftast lägre
+                    utbyte men en annan uppsättning brädor.</p>
+                <table class="opt">
+                    <thead><tr><th>Blockning</th><th>Block B×H</th><th>Utbyte</th><th></th></tr></thead>
+                    <tbody>
+                        @for (int i = 0; i < alternatives.Count; i++)
+                        {
+                            var a = alternatives[i];
+                            var idx = i;
+                            <tr class="@(idx == selectedAlt ? "on" : null)" @onclick="() => PickAlt(idx)">
+                                <td>@Mix(a)</td>
+                                <td>@U(a.BlockWidth) × @U(a.BlockHeight)</td>
+                                <td>@PostningMetrics.YieldPercent(a) %</td>
+                                <td class="go">@(idx == selectedAlt ? "✓ vald" : "visa ›")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </details>
+        }
         <PostningResultView Result="stockResult" />
     }
 }
@@ -122,6 +146,9 @@ else if (fit is not null)
     private string? stockError;
     private FitResult? fit;
     private PostningResult? myCant;
+
+    private IReadOnlyList<PostningResult> alternatives = System.Array.Empty<PostningResult>();
+    private int selectedAlt;
 
     private double FitWidth => widthAny && fit is not null ? fit.MaxWidth.Inches : width;
 
@@ -214,6 +241,7 @@ else if (fit is not null)
     {
         Persist();
         stockResult = null; stockError = null; fit = null; myCant = null;
+        alternatives = System.Array.Empty<PostningResult>();
 
         double clamp = Saw.ClampHeightMm / SawConstants.MmPerInch;
 
@@ -225,13 +253,34 @@ else if (fit is not null)
             return;
         }
 
-        if (mode == Mode.Optimal) { stockResult = p; return; }
+        if (mode == Mode.Optimal)
+        {
+            alternatives = PostningsMax.Alternatives(fub, Saw.KerfInches, clamp);
+            if (selectedAlt >= alternatives.Count) selectedAlt = 0;
+            stockResult = alternatives.Count > 0 ? alternatives[selectedAlt] : p;
+            return;
+        }
 
         // Fit-läget: få ut en dimension ur stocken.
         if (thicknessAny) { myCant = p; return; }
         double w = widthAny ? p.BlockWidth.Inches : width;
         if (w > 0 && thickness > 0)
             fit = TargetDimension.FitInStock(fub, w, thickness, Saw.KerfInches);
+    }
+
+    private void PickAlt(int i)
+    {
+        if (i < 0 || i >= alternatives.Count) return;
+        selectedAlt = i;
+        stockResult = alternatives[i];
+    }
+
+    private static string Mix(PostningResult r)
+    {
+        var parts = new List<string>();
+        for (int i = 0; i < r.BlockTwoInchBoards; i++) parts.Add("2");
+        for (int i = 0; i < r.BlockOneInchBoards; i++) parts.Add("1");
+        return parts.Count > 0 ? string.Join("+", parts) : "–";
     }
 
     private void Persist()

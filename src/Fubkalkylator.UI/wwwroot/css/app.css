@@ -318,6 +318,10 @@ table.opt td { padding: .55rem .2rem; border-bottom: 1px solid var(--line); font
 table.opt tbody tr, table.opt tr { cursor: pointer; }
 table.opt tbody tr:hover td { background: #fff6e4; }
 table.opt .go { text-align: right; color: var(--leaf); font-weight: 600; }
+table.opt tr.on td { background: #eaf3ec; font-weight: 700; }
+[data-theme="dark"] table.opt tr.on td { background: #1b2c20; }
+.alternatives summary { cursor: pointer; font-weight: 600; color: var(--forest); }
+[data-theme="dark"] .alternatives summary { color: #bfe0c9; }
 
 .banner {
     background: #eaf3ec; border: 1px solid #cfe3d4; color: #234b31;

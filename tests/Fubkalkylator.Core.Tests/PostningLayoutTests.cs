@@ -35,6 +35,22 @@ public class PostningLayoutTests
         => Assert.Empty(PostningLayout.EndPiecesPerSide(Ref));
 
     [Fact]
+    public void Alternatives_are_largest_first_and_share_block_width()
+    {
+        var alts = PostningsMax.Alternatives(13.0);
+        Assert.NotEmpty(alts);
+
+        var optimal = PostningsMax.Compute(13.0);
+        Assert.Equal(optimal.BlockHeight.Inches, alts[0].BlockHeight.Inches, 6);   // störst först = optimalt
+        Assert.True(alts.Count <= 6);
+
+        for (int i = 1; i < alts.Count; i++)
+            Assert.True(alts[i].BlockHeight.Inches < alts[i - 1].BlockHeight.Inches);   // fallande höjd
+
+        Assert.All(alts, a => Assert.Equal(optimal.BlockWidth.Inches, a.BlockWidth.Inches, 6));   // samma bredd
+    }
+
+    [Fact]
     public void Side_board_has_a_kerf_gap_to_the_block()
     {
         // Ett grövre fall som ger en sidobräda att titta på.

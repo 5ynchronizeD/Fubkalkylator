@@ -74,14 +74,47 @@ public static class PostningsMax
                 nameof(kerfInches), kerfInches, "Sågspåret kan inte vara negativt.");
 
         double fub = diameterUnderBarkInches;
+        double blockWidth = BlockWidthFor(fub);
+        BlockRow block = SawTables.SnapBlockHeight(RawHeightFor(fub), kerfInches);
+        return Build(fub, blockWidth, block, kerfInches, clampInches);
+    }
 
-        // Blockbredd [B] = floor(fub/2 · √2)   (PostningsMax!C9)
-        double halfDiagonal = (fub / 2.0) * Sqrt2;           // Data!E3
-        double blockWidth = Math.Floor(halfDiagonal);
+    /// <summary>
+    /// Alla postningsalternativ för stocken: samma blockbredd men olika blockhöjd
+    /// (raderna i uttagstabellen ≤ största som ryms), störst (= optimalt) först. Låter
+    /// användaren välja en mindre blockning för en annan brädmix.
+    /// </summary>
+    public static IReadOnlyList<PostningResult> Alternatives(double diameterUnderBarkInches,
+        double kerfInches = SawConstants.KerfInches, double clampInches = 0)
+    {
+        if (diameterUnderBarkInches <= 0)
+            throw new ArgumentOutOfRangeException(nameof(diameterUnderBarkInches),
+                diameterUnderBarkInches, "Diametern måste vara större än 0.");
 
-        // Rå blockhöjd (Data!E4) = 2·E3 − B, snäpps sedan till tabellhöjd (C10).
-        double rawHeight = 2.0 * halfDiagonal - blockWidth;
-        BlockRow block = SawTables.SnapBlockHeight(rawHeight, kerfInches);
+        double fub = diameterUnderBarkInches;
+        double blockWidth = BlockWidthFor(fub);
+        double maxHeight = SawTables.SnapBlockHeight(RawHeightFor(fub), kerfInches).HeightInches;
+
+        var list = new List<PostningResult>();
+        foreach (var row in SawTables.BlockDivisionTable(kerfInches))
+            if (row.HeightInches <= maxHeight + 1e-9)
+                list.Add(Build(fub, blockWidth, row, kerfInches, clampInches));
+        list.Reverse();   // störst blockhöjd (optimalt) först
+
+        // Bara de största (optimalt + några mindre) — de minsta blocken är sällan intressanta.
+        const int max = 6;
+        if (list.Count > max) list = list.GetRange(0, max);
+        return list;
+    }
+
+    // Blockbredd [B] = floor(fub/2·√2); rå blockhöjd = 2·(fub/2·√2) − B (Data!E3/E4).
+    private static double BlockWidthFor(double fub) => Math.Floor((fub / 2.0) * Sqrt2);
+    private static double RawHeightFor(double fub) => 2.0 * ((fub / 2.0) * Sqrt2) - BlockWidthFor(fub);
+
+    // Bygger postningen för en given blockbredd + blockhöjd (uttagsrad).
+    private static PostningResult Build(double fub, double blockWidth, BlockRow block,
+        double kerfInches, double clampInches)
+    {
         double blockHeight = block.HeightInches;
 
         // Stockklämma: den sista biten mot bädden — INKLUSIVE den runda barken under
